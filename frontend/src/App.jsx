@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import PlayerSearch from './components/PlayerSearch'
 import EnhancedCard from './components/EnhancedCard'
+import PerformanceChart from './components/PerformanceChart'
 import './App.css'
 
 function App() {
@@ -59,6 +60,10 @@ function App() {
         {enhancedData && !loading && (
           <section className="player-section">
             <EnhancedCard data={enhancedData} />
+            <PerformanceChart
+              playerId={selectedPlayer.sleeper_id}
+              playerName={selectedPlayer.name}
+            />
           </section>
         )}
 
