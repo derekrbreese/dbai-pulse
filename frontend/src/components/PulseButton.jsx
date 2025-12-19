@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import './PulseButton.css'
 import PulseModal from './PulseModal'
 
@@ -52,12 +53,15 @@ function PulseButton({ sleeperId, playerName }) {
 
             {error && <div className="pulse-error">⚠️ {error}</div>}
 
-            {showModal && pulseData && (
+            {/* Use createPortal to render modal at document.body level */}
+            {/* This escapes any parent stacking contexts */}
+            {showModal && pulseData && createPortal(
                 <PulseModal
                     data={pulseData}
                     playerName={playerName}
                     onClose={() => setShowModal(false)}
-                />
+                />,
+                document.body
             )}
         </>
     )
