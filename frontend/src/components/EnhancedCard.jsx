@@ -1,4 +1,5 @@
 import './EnhancedCard.css'
+import PulseButton from './PulseButton'
 
 function EnhancedCard({ data }) {
     const { player, projection, recent_performance, performance_flags, context_message, on_bye } = data
@@ -121,6 +122,9 @@ function EnhancedCard({ data }) {
                     <p className="context-message">{context_message}</p>
                 </div>
             )}
+
+            {/* Pulse Button */}
+            <PulseButton sleeperId={player.sleeper_id} playerName={player.name} />
         </div>
     )
 }
