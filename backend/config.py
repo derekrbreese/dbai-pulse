@@ -2,7 +2,6 @@
 Configuration and environment settings for dbAI Pulse.
 """
 
-import os
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 
@@ -24,9 +23,10 @@ class Settings(BaseSettings):
     # Sleeper API
     sleeper_base_url: str = "https://api.sleeper.app/v1"
 
-    # Current NFL season/week (update as needed)
-    nfl_season: int = 2024
-    nfl_week: int = 16  # Update weekly
+    # Current NFL season/week
+    # Update these values as the season progresses
+    nfl_season: int = 2025  # Current NFL season
+    nfl_week: int = 16  # Current week (December 2025)
 
     class Config:
         env_file = ".env"

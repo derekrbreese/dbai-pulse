@@ -7,7 +7,6 @@ Free, no auth required.
 
 import logging
 from typing import Any, Dict, List, Optional
-from functools import lru_cache
 import httpx
 from cachetools import TTLCache
 
@@ -136,8 +135,21 @@ class SleeperClient:
         projections = await self.get_projections(season, week)
         player_proj = projections.get(sleeper_id, {})
 
-        # Try PPR first, then standard
-        return player_proj.get("pts_ppr") or player_proj.get("pts") or 0.0
+        # Sleeper API structure: player_id -> {stats: {...}, player: {...}}
+        # The stats object contains the actual projection numbers
+        stats = player_proj.get(
+            "stats", player_proj
+        )  # Fallback to player_proj if stats not nested
+
+        # Try PPR first, then half-PPR, then standard
+        pts = (
+            stats.get("pts_ppr")
+            or stats.get("pts_half_ppr")
+            or stats.get("pts_std")
+            or stats.get("pts")
+            or 0.0
+        )
+        return float(pts)
 
     async def get_stats(self, season: int, week: int) -> Dict[str, Any]:
         """
@@ -185,7 +197,15 @@ class SleeperClient:
 
             stats = await self.get_player_stats(sleeper_id, season, week)
             if stats:
-                points = stats.get("pts_ppr") or stats.get("pts") or 0
+                # Stats can be nested under "stats" key or directly in the object
+                stat_data = stats.get("stats", stats)
+                points = (
+                    stat_data.get("pts_ppr")
+                    or stat_data.get("pts_half_ppr")
+                    or stat_data.get("pts_std")
+                    or stat_data.get("pts")
+                    or 0
+                )
                 weekly_points.append({"week": week, "points": float(points)})
 
         if not weekly_points:

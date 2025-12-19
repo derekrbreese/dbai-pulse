@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from config import get_settings
 from services.sleeper import get_sleeper_client
+from services.enhancement import get_enhancement_engine
 from models.schemas import (
     PlayerSearchResult,
     EnhancedPlayer,
@@ -57,11 +58,6 @@ async def get_player(sleeper_id: str):
             sleeper_id, settings.nfl_season, settings.nfl_week
         )
 
-    projection = PlayerProjection(
-        sleeper_projection=projection_value,
-        adjusted_projection=None,  # Will be calculated by enhancement service
-    )
-
     # Get recent performance
     recent_data = await client.get_recent_performance(
         sleeper_id, settings.nfl_season, settings.nfl_week
@@ -71,10 +67,44 @@ async def get_player(sleeper_id: str):
     if recent_data["weeks_analyzed"] > 0:
         recent_performance = RecentPerformance(**recent_data)
 
+    # Fallback: use L3W avg as projection if Sleeper returns 0
+    # This happens during off-season or for past weeks
+    is_projection_fallback = False
+    if projection_value == 0 and recent_performance:
+        projection_value = recent_performance.avg_points
+        is_projection_fallback = True
+
+    # Calculate flags and adjusted projection
+    flags = []
+    adjusted_value = None
+
+    if recent_performance and not on_bye and projection_value > 0:
+        engine = get_enhancement_engine()
+        flags = engine.calculate_flags(projection_value, recent_performance)
+
+        if flags:
+            adjusted_value = engine.calculate_adjusted_projection(
+                projection_value, recent_performance, flags
+            )
+
+    projection = PlayerProjection(
+        sleeper_projection=projection_value, adjusted_projection=adjusted_value
+    )
+
     # Build context message
     context = ""
     if on_bye:
         context = f"Player is on bye (Week {player.bye_week})"
+    elif is_projection_fallback:
+        context = f"Using L3W avg ({recent_performance.avg_points} pts)"
+    elif flags:
+        # Prioritize important flags for context
+        main_flag = flags[0].replace("_", " ")
+        context = f"{main_flag}"
+        if adjusted_value and adjusted_value != projection_value:
+            diff = adjusted_value - projection_value
+            sign = "+" if diff > 0 else ""
+            context += f" ({sign}{diff:.1f} pts adj)"
     elif recent_performance:
         context = f"L{recent_performance.weeks_analyzed}W avg: {recent_performance.avg_points} pts"
     else:
@@ -84,7 +114,7 @@ async def get_player(sleeper_id: str):
         player=player,
         projection=projection,
         recent_performance=recent_performance,
-        performance_flags=[],  # Will be populated by enhancement service
+        performance_flags=flags,
         context_message=context,
         on_bye=on_bye,
     )
