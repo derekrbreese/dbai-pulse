@@ -1,5 +1,8 @@
 # dbAI Pulse
 
+[![GitHub](https://img.shields.io/badge/GitHub-derekrbreese%2Fdbai--pulse-blue?logo=github)](https://github.com/derekrbreese/dbai-pulse)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A standalone Fantasy Football intelligence dashboard with AI-powered expert synthesis.
 
 ## Features
