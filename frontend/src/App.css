@@ -1,0 +1,142 @@
+:root {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1e1e2e;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  --accent: #6366f1;
+  --accent-glow: rgba(99, 102, 241, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Header */
+.app-header {
+  text-align: center;
+  padding: 48px 24px 32px;
+  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+}
+
+.app-header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.app-header .brand {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tagline {
+  font-size: 1rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+/* Main Content */
+.app-main {
+  flex: 1;
+  padding: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.search-section {
+  margin-bottom: 32px;
+}
+
+.player-section {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* States */
+.loading-state,
+.error-state,
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.loading-state .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-state {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 12px;
+}
+
+.empty-state {
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+}
+
+.empty-state h2 {
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 0.95rem;
+}
+
+/* Footer */
+.app-footer {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
