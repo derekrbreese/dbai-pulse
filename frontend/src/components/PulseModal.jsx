@@ -115,13 +115,21 @@ function PulseModal({ data, playerName, onClose }) {
                     <h4 className="section-title">📚 Data Sources</h4>
                     <ul className="citations-list">
                         <li>
+                            <span className="citation-source">Google Search</span>
+                            <span className="citation-detail">Live web search for current news & expert opinions</span>
+                        </li>
+                        <li>
                             <span className="citation-source">Sleeper API</span>
                             <span className="citation-detail">Player projections & stats, Week 16, 2025 NFL season</span>
                         </li>
-                        <li>
-                            <span className="citation-source">Gemini 3 Flash</span>
-                            <span className="citation-detail">AI synthesis & recommendation engine</span>
-                        </li>
+                        {gemini_analysis.sources_used && gemini_analysis.sources_used.length > 0 && (
+                            <li>
+                                <span className="citation-source">Sources Found</span>
+                                <span className="citation-detail">
+                                    {gemini_analysis.sources_used.join(', ')}
+                                </span>
+                            </li>
+                        )}
                         <li>
                             <span className="citation-source">Generated</span>
                             <span className="citation-detail">{new Date().toLocaleString()}</span>

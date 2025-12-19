@@ -1,12 +1,11 @@
 """
 Gemini 3 Flash synthesis service for dbAI Pulse.
-Uses Google's new genai SDK to synthesize fantasy football insights.
+Uses Google's genai SDK with Google Search grounding for real-time fantasy insights.
 """
 
 import logging
 import json
 from typing import Dict, List, Optional
-import os
 from google import genai
 from google.genai import types
 
@@ -18,7 +17,7 @@ settings = get_settings()
 
 
 class GeminiSynthesis:
-    """Service for synthesizing fantasy football insights using Gemini 3 Flash."""
+    """Service for synthesizing fantasy football insights using Gemini 3 Flash with Google Search."""
 
     MODEL_NAME = "gemini-3-flash-preview"  # Gemini 3 Flash Preview
 
@@ -29,61 +28,51 @@ class GeminiSynthesis:
         projection: float,
         recent_performance: Optional[RecentPerformance],
         flags: List[str],
-        youtube_context: str,
     ) -> str:
         """
-        Create a synthesis prompt for Gemini.
-
-        Args:
-            player_name: Player full name
-            position: Position (QB, RB, WR, TE)
-            projection: Projected points
-            recent_performance: L3W performance data
-            flags: Performance flags
-            youtube_context: Summarized YouTube expert takes
-
-        Returns:
-            Formatted prompt string
+        Create a synthesis prompt for Gemini with Google Search grounding.
         """
         # Build performance summary
         perf_summary = "No recent data available"
         if recent_performance:
             perf_summary = f"""
 - L{recent_performance.weeks_analyzed}W Average: {recent_performance.avg_points} pts
-- Best Week: {recent_performance.total_points / recent_performance.weeks_analyzed if recent_performance.weeks_analyzed > 0 else 0:.1f} pts
 - Trend: {recent_performance.trend}
 - Weekly Points: {", ".join([str(p) for p in recent_performance.weekly_points])}
 """
 
         flags_str = ", ".join(flags) if flags else "None"
 
-        prompt = f"""You are an expert fantasy football analyst. Analyze the following data for {player_name} ({position}) and provide actionable start/sit advice for this week.
+        prompt = f"""You are an expert fantasy football analyst helping with Week 16 of the 2025 NFL season.
 
-STATISTICAL DATA:
+PLAYER: {player_name} ({position})
+
+STATISTICAL DATA FROM SLEEPER API:
 - Projected Points: {projection} pts
 {perf_summary}
 - Performance Flags: {flags_str}
 
-EXPERT ANALYSIS (from YouTube):
-{youtube_context}
+YOUR TASK:
+1. Use Google Search to find the LATEST news, injury updates, and expert opinions about {player_name} for this week
+2. Look for recent Reddit discussions, Twitter/X posts, and fantasy analyst takes
+3. Check for any breaking news that affects their value
+4. Consider their matchup this week
 
-Based on this information, provide a JSON response with the following structure:
+Based on ALL available information (stats + live search results), provide a JSON response:
 {{
     "recommendation": "START" | "SIT" | "FLEX",
     "conviction": "HIGH" | "MEDIUM-HIGH" | "MIXED" | "MEDIUM-LOW" | "LOW",
-    "reasoning": "2-3 sentence explanation of your recommendation",
-    "key_factors": ["factor 1", "factor 2", "factor 3"],
+    "reasoning": "2-3 sentence explanation citing specific sources you found",
+    "key_factors": ["factor 1 with source", "factor 2 with source", "factor 3 with source"],
     "risk_level": "LOW" | "MODERATE" | "HIGH",
-    "expert_consensus": "brief summary of what experts are saying"
+    "expert_consensus": "summary of what fantasy experts are saying, cite sources",
+    "sources_used": ["source 1", "source 2", "source 3"]
 }}
 
-Guidelines:
-- START: Confident weekly starter in most leagues
-- SIT: Bench or avoid this week
-- FLEX: Borderline play, depends on roster depth
-- Be specific and actionable
-- Consider matchups, role, and recent trends
-- Flag any injury concerns or uncertainties
+IMPORTANT: 
+- Cite specific sources you find (e.g., "FantasyPros ranks him...", "Reddit r/fantasyfootball says...")
+- Include any injury news or matchup concerns
+- Be specific about THIS WEEK's outlook
 
 Respond ONLY with valid JSON, no markdown formatting."""
 
@@ -96,13 +85,10 @@ Respond ONLY with valid JSON, no markdown formatting."""
         projection: float,
         recent_performance: Optional[RecentPerformance],
         flags: List[str],
-        youtube_context: str,
+        youtube_context: str = "",  # Kept for backwards compatibility
     ) -> Dict:
         """
-        Use Gemini 3 Flash to synthesize all data into actionable insights.
-
-        Returns:
-            Dictionary with recommendation, conviction, reasoning, etc.
+        Use Gemini 3 Flash with Google Search grounding to synthesize insights.
         """
         try:
             # Create Gemini client
@@ -115,10 +101,11 @@ Respond ONLY with valid JSON, no markdown formatting."""
                 projection=projection,
                 recent_performance=recent_performance,
                 flags=flags,
-                youtube_context=youtube_context,
             )
 
-            logger.info(f"Sending Gemini 3 Flash request for {player_name}")
+            logger.info(
+                f"Sending Gemini 3 Flash request with Google Search for {player_name}"
+            )
 
             # Create content parts
             contents = [
@@ -128,13 +115,19 @@ Respond ONLY with valid JSON, no markdown formatting."""
                 ),
             ]
 
-            # Configure generation (no tools needed for this use case)
+            # Enable Google Search grounding tool
+            tools = [
+                types.Tool(googleSearch=types.GoogleSearch()),
+            ]
+
+            # Configure generation with thinking
             generate_content_config = types.GenerateContentConfig(
-                temperature=0.7,  # Balanced creativity
-                max_output_tokens=1024,  # Enough for JSON response
+                tools=tools,
+                temperature=0.7,
+                max_output_tokens=2048,
             )
 
-            # Generate response (non-streaming for simpler JSON parsing)
+            # Generate response with search grounding
             response = client.models.generate_content(
                 model=GeminiSynthesis.MODEL_NAME,
                 contents=contents,
@@ -154,6 +147,10 @@ Respond ONLY with valid JSON, no markdown formatting."""
 
             result = json.loads(response_text)
 
+            # Ensure sources_used field exists
+            if "sources_used" not in result:
+                result["sources_used"] = ["Google Search", "Sleeper API"]
+
             logger.info(
                 f"Gemini synthesis complete for {player_name}: {result.get('recommendation')}"
             )
@@ -166,7 +163,6 @@ Respond ONLY with valid JSON, no markdown formatting."""
                 f"Response text: {response_text if 'response_text' in locals() else 'N/A'}"
             )
 
-            # Return fallback response
             return {
                 "recommendation": "FLEX",
                 "conviction": "LOW",
@@ -174,12 +170,12 @@ Respond ONLY with valid JSON, no markdown formatting."""
                 "key_factors": ["Analysis unavailable"],
                 "risk_level": "MODERATE",
                 "expert_consensus": "No consensus available",
+                "sources_used": ["Sleeper API"],
             }
 
         except Exception as e:
             logger.error(f"Error in Gemini synthesis for {player_name}: {e}")
 
-            # Return fallback response
             return {
                 "recommendation": "FLEX",
                 "conviction": "LOW",
@@ -187,6 +183,7 @@ Respond ONLY with valid JSON, no markdown formatting."""
                 "key_factors": ["Analysis error"],
                 "risk_level": "HIGH",
                 "expert_consensus": "Unable to fetch expert opinions",
+                "sources_used": ["Sleeper API"],
             }
 
 
