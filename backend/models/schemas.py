@@ -66,14 +66,25 @@ class RedditSentiment(BaseModel):
     top_comments: List[dict] = []
 
 
+class GeminiAnalysis(BaseModel):
+    """Gemini AI synthesis result."""
+
+    recommendation: str  # "START", "SIT", "FLEX"
+    conviction: str  # "HIGH", "MEDIUM-HIGH", "MIXED", "MEDIUM-LOW", "LOW"
+    reasoning: str
+    key_factors: List[str] = []
+    risk_level: str  # "LOW", "MODERATE", "HIGH"
+    expert_consensus: str
+
+
 class PulseResult(BaseModel):
     """Full 'What's the Pulse?' result."""
 
     player: EnhancedPlayer
+    gemini_analysis: GeminiAnalysis
+    youtube_context: str = ""
     expert_takes: List[ExpertTake] = []
     reddit_sentiment: Optional[RedditSentiment] = None
-    conviction: str  # "HIGH", "MEDIUM-HIGH", "MIXED", "MEDIUM-LOW", "LOW"
-    conviction_reasoning: str = ""
 
 
 class PlayerSearchResult(BaseModel):
