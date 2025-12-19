@@ -75,6 +75,7 @@ class GeminiAnalysis(BaseModel):
     key_factors: List[str] = []
     risk_level: str  # "LOW", "MODERATE", "HIGH"
     expert_consensus: str
+    sources_used: List[str] = []  # Sources from Google Search grounding
 
 
 class PulseResult(BaseModel):
