@@ -5,6 +5,7 @@ Uses Google's genai SDK with Google Search grounding for real-time fantasy insig
 
 import logging
 import json
+import re
 from typing import Dict, List, Optional
 from google import genai
 from google.genai import types
@@ -20,6 +21,35 @@ class GeminiSynthesis:
     """Service for synthesizing fantasy football insights using Gemini 3 Flash with Google Search."""
 
     MODEL_NAME = "gemini-3-flash-preview"  # Gemini 3 Flash Preview
+
+    @staticmethod
+    def _extract_json(text: str) -> Dict:
+        """
+        Robustly extract JSON from Gemini response text.
+        Handles markdown blocks, extra text, and malformed responses.
+        """
+        # First, try to find JSON in markdown code blocks
+        json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+        if json_match:
+            try:
+                return json.loads(json_match.group(1).strip())
+            except json.JSONDecodeError:
+                pass
+
+        # Try to find JSON object by looking for { ... }
+        json_match = re.search(r"\{[\s\S]*\}", text)
+        if json_match:
+            try:
+                return json.loads(json_match.group(0))
+            except json.JSONDecodeError:
+                pass
+
+        # If all else fails, try parsing the whole thing
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            logger.error(f"Could not extract JSON from response: {text[:200]}...")
+            raise
 
     @staticmethod
     def create_synthesis_prompt(
@@ -137,19 +167,19 @@ Respond ONLY with valid JSON, no markdown formatting."""
             # Extract text from response
             response_text = response.text.strip()
 
-            # Remove markdown code blocks if present
-            if response_text.startswith("```json"):
-                response_text = (
-                    response_text.replace("```json", "").replace("```", "").strip()
-                )
-            elif response_text.startswith("```"):
-                response_text = response_text.replace("```", "").strip()
+            logger.info(f"Raw Gemini response: {response_text[:500]}...")
 
-            result = json.loads(response_text)
+            # Try to extract JSON from the response
+            result = GeminiSynthesis._extract_json(response_text)
 
-            # Ensure sources_used field exists
-            if "sources_used" not in result:
-                result["sources_used"] = ["Google Search", "Sleeper API"]
+            # Ensure required fields exist with defaults
+            result.setdefault("recommendation", "FLEX")
+            result.setdefault("conviction", "MEDIUM")
+            result.setdefault("reasoning", "Analysis based on available data.")
+            result.setdefault("key_factors", [])
+            result.setdefault("risk_level", "MODERATE")
+            result.setdefault("expert_consensus", "Mixed opinions from experts.")
+            result.setdefault("sources_used", ["Google Search", "Sleeper API"])
 
             logger.info(
                 f"Gemini synthesis complete for {player_name}: {result.get('recommendation')}"
