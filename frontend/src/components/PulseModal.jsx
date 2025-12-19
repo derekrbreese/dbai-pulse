@@ -1,6 +1,6 @@
 import './PulseModal.css'
 
-function PulseModal({ data, playerName, onClose }) {
+function PulseModal({ data, playerName: _playerName, onClose }) {
     const { gemini_analysis, player } = data
 
     const getConvictionColor = (conviction) => {

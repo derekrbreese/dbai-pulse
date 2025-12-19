@@ -216,6 +216,112 @@ Respond ONLY with valid JSON, no markdown formatting."""
                 "sources_used": ["Sleeper API"],
             }
 
+    @staticmethod
+    async def compare_players(
+        player_a_name: str,
+        player_a_position: str,
+        player_a_projection: float,
+        player_a_avg: float,
+        player_a_trend: str,
+        player_a_flags: List[str],
+        player_b_name: str,
+        player_b_position: str,
+        player_b_projection: float,
+        player_b_avg: float,
+        player_b_trend: str,
+        player_b_flags: List[str],
+    ) -> Dict:
+        """
+        Compare two players using Gemini with Google Search grounding.
+        """
+        try:
+            client = genai.Client(api_key=settings.gemini_api_key)
+
+            flags_a = ", ".join(player_a_flags) if player_a_flags else "None"
+            flags_b = ", ".join(player_b_flags) if player_b_flags else "None"
+
+            prompt = f"""You are an expert fantasy football analyst. Compare these two players for Week 16 of the 2025 NFL season.
+
+PLAYER A: {player_a_name} ({player_a_position})
+- Projection: {player_a_projection} pts
+- L3W Average: {player_a_avg} pts
+- Trend: {player_a_trend}
+- Flags: {flags_a}
+
+PLAYER B: {player_b_name} ({player_b_position})
+- Projection: {player_b_projection} pts
+- L3W Average: {player_b_avg} pts
+- Trend: {player_b_trend}
+- Flags: {flags_b}
+
+Use Google Search to find:
+1. Current matchup info for both players
+2. Injury news or concerns
+3. Expert rankings and analyst opinions
+4. Recent news affecting their value
+
+Based on all available info, return JSON:
+{{
+    "winner": "A" | "B" | "TOSS_UP",
+    "conviction": "HIGH" | "MEDIUM" | "LOW",
+    "reasoning": "2-3 sentences explaining your pick, citing sources",
+    "key_advantages_a": ["advantage 1", "advantage 2"],
+    "key_advantages_b": ["advantage 1", "advantage 2"],
+    "matchup_edge": "Who has the better matchup and why",
+    "sources_used": ["source 1", "source 2"]
+}}
+
+Respond ONLY with valid JSON."""
+
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text=prompt)],
+                ),
+            ]
+
+            tools = [types.Tool(googleSearch=types.GoogleSearch())]
+
+            config = types.GenerateContentConfig(
+                tools=tools,
+                temperature=0.7,
+                max_output_tokens=2048,
+            )
+
+            response = client.models.generate_content(
+                model=GeminiSynthesis.MODEL_NAME,
+                contents=contents,
+                config=config,
+            )
+
+            response_text = response.text.strip()
+            logger.info(f"Comparison response: {response_text[:300]}...")
+
+            result = GeminiSynthesis._extract_json(response_text)
+
+            # Set defaults
+            result.setdefault("winner", "TOSS_UP")
+            result.setdefault("conviction", "MEDIUM")
+            result.setdefault("reasoning", "Both players have similar value.")
+            result.setdefault("key_advantages_a", [])
+            result.setdefault("key_advantages_b", [])
+            result.setdefault("matchup_edge", "Similar matchups")
+            result.setdefault("sources_used", ["Google Search", "Sleeper API"])
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error comparing players: {e}")
+            return {
+                "winner": "TOSS_UP",
+                "conviction": "LOW",
+                "reasoning": f"Error during comparison: {str(e)}",
+                "key_advantages_a": [],
+                "key_advantages_b": [],
+                "matchup_edge": "Unable to determine",
+                "sources_used": ["Sleeper API"],
+            }
+
 
 def get_gemini_service() -> GeminiSynthesis:
     """Get Gemini synthesis service instance."""

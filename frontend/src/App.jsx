@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import PlayerSearch from './components/PlayerSearch'
 import EnhancedCard from './components/EnhancedCard'
 import PerformanceChart from './components/PerformanceChart'
+import ComparisonView from './components/ComparisonView'
 import './App.css'
 
 function App() {
@@ -9,6 +10,7 @@ function App() {
   const [enhancedData, setEnhancedData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [showComparison, setShowComparison] = useState(false)
 
   const handlePlayerSelect = useCallback(async (player) => {
     setSelectedPlayer(player)
@@ -37,6 +39,14 @@ function App() {
           <span className="brand">dbAI</span> Pulse
         </h1>
         <p className="tagline">Fantasy Football Intelligence Dashboard</p>
+
+        {/* Compare Button */}
+        <button
+          className="compare-nav-button"
+          onClick={() => setShowComparison(true)}
+        >
+          🔄 Compare Players
+        </button>
       </header>
 
       <main className="app-main">
@@ -72,13 +82,24 @@ function App() {
             <div className="empty-icon">🏈</div>
             <h2>Search for a player</h2>
             <p>Get enhanced projections, performance flags, and AI-powered insights</p>
+            <button
+              className="compare-cta-button"
+              onClick={() => setShowComparison(true)}
+            >
+              🔄 Or compare two players head-to-head
+            </button>
           </div>
         )}
       </main>
 
       <footer className="app-footer">
-        <p>dbAI Pulse v0.1.0 • Data from Sleeper API</p>
+        <p>dbAI Pulse v0.2.0 • Data from Sleeper API • Powered by Gemini 3 Flash</p>
       </footer>
+
+      {/* Comparison Modal */}
+      {showComparison && (
+        <ComparisonView onClose={() => setShowComparison(false)} />
+      )}
     </div>
   )
 }

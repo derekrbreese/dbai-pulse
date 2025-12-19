@@ -1,0 +1,171 @@
+.comparison-result {
+    margin: 24px 32px 32px 32px;
+}
+
+/* Winner Banner */
+.winner-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+}
+
+.winner-banner.winner-a,
+.winner-banner.winner-b {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.winner-banner.winner-toss {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.winner-icon {
+    font-size: 2.5rem;
+}
+
+.winner-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.winner-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 700;
+}
+
+.winner-name {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: white;
+}
+
+.conviction-badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Stats Side by Side */
+.comparison-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.comparison-player {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 20px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.comparison-player.is-winner {
+    border-color: rgba(34, 197, 94, 0.4);
+    background: rgba(34, 197, 94, 0.05);
+}
+
+.comparison-player h4 {
+    margin: 0 0 16px 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stat-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+}
+
+.stat-value {
+    color: white;
+    font-weight: 600;
+}
+
+.advantages {
+    margin-top: 16px;
+}
+
+.advantages-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #22c55e;
+}
+
+.advantages ul {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0 0;
+}
+
+.advantages li {
+    padding: 6px 0;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    border-left: 2px solid #22c55e;
+    padding-left: 12px;
+    margin-bottom: 4px;
+}
+
+/* Reasoning */
+.comparison-reasoning,
+.matchup-edge {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.comparison-reasoning h4,
+.matchup-edge h4 {
+    margin: 0 0 12px 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.comparison-reasoning p,
+.matchup-edge p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+}
+
+/* Sources */
+.comparison-sources {
+    text-align: center;
+    padding: 16px;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.8rem;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .comparison-stats {
+        flex-direction: column;
+    }
+
+    .winner-banner {
+        flex-wrap: wrap;
+    }
+}

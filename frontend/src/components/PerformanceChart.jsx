@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts'
 import './PerformanceChart.css'
 
-function PerformanceChart({ playerId, playerName }) {
+function PerformanceChart({ playerId, playerName: _playerName }) {
     const [chartData, setChartData] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)

@@ -88,6 +88,21 @@ class PulseResult(BaseModel):
     reddit_sentiment: Optional[RedditSentiment] = None
 
 
+class ComparisonResult(BaseModel):
+    """Head-to-head player comparison result."""
+
+    player_a: EnhancedPlayer
+    player_b: EnhancedPlayer
+    winner: str  # "A" | "B" | "TOSS_UP"
+    winner_name: str
+    conviction: str  # "HIGH" | "MEDIUM" | "LOW"
+    reasoning: str
+    key_advantages_a: List[str] = []
+    key_advantages_b: List[str] = []
+    matchup_edge: str = ""
+    sources_used: List[str] = []
+
+
 class PlayerSearchResult(BaseModel):
     """Search result for player lookup."""
 
