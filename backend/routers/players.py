@@ -315,105 +315,140 @@ async def compare_players(player_a_id: str, player_b_id: str):
     Compare two players head-to-head using Gemini with Google Search.
     Returns winner recommendation with reasoning.
     """
-    client = get_sleeper_client()
-    engine = get_enhancement_engine()
-    gemini_service = get_gemini_service()
+    import logging
 
-    # Fetch both players (returns dict, not object)
-    player_a_data = await client.get_player(player_a_id)
-    player_b_data = await client.get_player(player_b_id)
+    logger = logging.getLogger(__name__)
 
-    if not player_a_data or not player_b_data:
-        raise HTTPException(status_code=404, detail="One or both players not found")
+    try:
+        client = get_sleeper_client()
+        engine = get_enhancement_engine()
+        gemini_service = get_gemini_service()
 
-    # Convert to PlayerBase objects
-    player_a = PlayerBase(**player_a_data)
-    player_b = PlayerBase(**player_b_data)
+        logger.info(f"Comparing players {player_a_id} vs {player_b_id}")
 
-    # Get enhanced data for both
-    proj_a = await client.get_player_projection(player_a_id)
-    proj_b = await client.get_player_projection(player_b_id)
+        # Fetch both players (returns dict, not object)
+        player_a_data = await client.get_player(player_a_id)
+        player_b_data = await client.get_player(player_b_id)
 
-    stats_a = await client.get_player_stats_last_n_weeks(player_a_id, weeks=3)
-    stats_b = await client.get_player_stats_last_n_weeks(player_b_id, weeks=3)
+        if not player_a_data or not player_b_data:
+            raise HTTPException(status_code=404, detail="One or both players not found")
 
-    # Calculate projections and performance
-    proj_a_val = proj_a.get("pts_ppr", 0) if proj_a else 0
-    proj_b_val = proj_b.get("pts_ppr", 0) if proj_b else 0
+        logger.info(
+            f"Found players: {player_a_data.get('name')} vs {player_b_data.get('name')}"
+        )
 
-    perf_a = engine.calculate_recent_performance(stats_a)
-    perf_b = engine.calculate_recent_performance(stats_b)
+        # Convert to PlayerBase objects
+        player_a = PlayerBase(**player_a_data)
+        player_b = PlayerBase(**player_b_data)
 
-    # calculate_flags expects (projection, recent_performance)
-    flags_a = engine.calculate_flags(proj_a_val, perf_a) if perf_a else []
-    flags_b = engine.calculate_flags(proj_b_val, perf_b) if perf_b else []
+        # Get settings for season/week
+        settings = get_settings()
 
-    # Get Gemini comparison
-    comparison = await gemini_service.compare_players(
-        player_a_name=player_a.name,
-        player_a_position=player_a.position,
-        player_a_projection=proj_a_val,
-        player_a_avg=perf_a.avg_points if perf_a else 0,
-        player_a_trend=perf_a.trend if perf_a else "unknown",
-        player_a_flags=flags_a,
-        player_b_name=player_b.name,
-        player_b_position=player_b.position,
-        player_b_projection=proj_b_val,
-        player_b_avg=perf_b.avg_points if perf_b else 0,
-        player_b_trend=perf_b.trend if perf_b else "unknown",
-        player_b_flags=flags_b,
-    )
+        # Get enhanced data for both - need season and week
+        proj_a_val = await client.get_player_projection(
+            player_a_id, settings.nfl_season, settings.nfl_week
+        )
+        proj_b_val = await client.get_player_projection(
+            player_b_id, settings.nfl_season, settings.nfl_week
+        )
 
-    # Build enhanced player objects
-    enhanced_a = EnhancedPlayer(
-        player=player_a,
-        projection=PlayerProjection(
-            sleeper_projection=proj_a_val,
-            adjusted_projection=engine.calculate_adjusted_projection(
-                proj_a_val, perf_a, flags_a
-            )
-            if perf_a
-            else proj_a_val,
-            adjustment_reason=" ".join(flags_a) if flags_a else None,
-        ),
-        recent_performance=perf_a,
-        performance_flags=flags_a,
-        context_message="",
-        on_bye=False,
-    )
+        # Get recent performance
+        perf_a_data = await client.get_recent_performance(
+            player_a_id, settings.nfl_season, settings.nfl_week, lookback=3
+        )
+        perf_b_data = await client.get_recent_performance(
+            player_b_id, settings.nfl_season, settings.nfl_week, lookback=3
+        )
 
-    enhanced_b = EnhancedPlayer(
-        player=player_b,
-        projection=PlayerProjection(
-            sleeper_projection=proj_b_val,
-            adjusted_projection=engine.calculate_adjusted_projection(
-                proj_b_val, perf_b, flags_b
-            )
-            if perf_b
-            else proj_b_val,
-            adjustment_reason=" ".join(flags_b) if flags_b else None,
-        ),
-        recent_performance=perf_b,
-        performance_flags=flags_b,
-        context_message="",
-        on_bye=False,
-    )
+        # Convert to RecentPerformance objects if data exists
+        perf_a = (
+            RecentPerformance(**perf_a_data)
+            if perf_a_data and perf_a_data.get("weeks_analyzed", 0) > 0
+            else None
+        )
+        perf_b = (
+            RecentPerformance(**perf_b_data)
+            if perf_b_data and perf_b_data.get("weeks_analyzed", 0) > 0
+            else None
+        )
 
-    winner_name = (
-        player_a.name
-        if comparison["winner"] == "A"
-        else (player_b.name if comparison["winner"] == "B" else "Toss-up")
-    )
+        # calculate_flags expects (projection, recent_performance)
+        flags_a = engine.calculate_flags(proj_a_val, perf_a) if perf_a else []
+        flags_b = engine.calculate_flags(proj_b_val, perf_b) if perf_b else []
 
-    return ComparisonResult(
-        player_a=enhanced_a,
-        player_b=enhanced_b,
-        winner=comparison["winner"],
-        winner_name=winner_name,
-        conviction=comparison["conviction"],
-        reasoning=comparison["reasoning"],
-        key_advantages_a=comparison["key_advantages_a"],
-        key_advantages_b=comparison["key_advantages_b"],
-        matchup_edge=comparison["matchup_edge"],
-        sources_used=comparison["sources_used"],
-    )
+        logger.info(f"Calling Gemini compare_players...")
+
+        # Get Gemini comparison
+        comparison = await gemini_service.compare_players(
+            player_a_name=player_a.name,
+            player_a_position=player_a.position,
+            player_a_projection=proj_a_val,
+            player_a_avg=perf_a.avg_points if perf_a else 0,
+            player_a_trend=perf_a.trend if perf_a else "unknown",
+            player_a_flags=flags_a,
+            player_b_name=player_b.name,
+            player_b_position=player_b.position,
+            player_b_projection=proj_b_val,
+            player_b_avg=perf_b.avg_points if perf_b else 0,
+            player_b_trend=perf_b.trend if perf_b else "unknown",
+            player_b_flags=flags_b,
+        )
+
+        logger.info(f"Gemini returned winner: {comparison.get('winner')}")
+
+        # Build enhanced player objects
+        enhanced_a = EnhancedPlayer(
+            player=player_a,
+            projection=PlayerProjection(
+                sleeper_projection=proj_a_val,
+                adjusted_projection=engine.calculate_adjusted_projection(
+                    proj_a_val, perf_a, flags_a
+                )
+                if perf_a
+                else proj_a_val,
+                adjustment_reason=" ".join(flags_a) if flags_a else None,
+            ),
+            recent_performance=perf_a,
+            performance_flags=flags_a,
+            context_message="",
+            on_bye=False,
+        )
+
+        enhanced_b = EnhancedPlayer(
+            player=player_b,
+            projection=PlayerProjection(
+                sleeper_projection=proj_b_val,
+                adjusted_projection=engine.calculate_adjusted_projection(
+                    proj_b_val, perf_b, flags_b
+                )
+                if perf_b
+                else proj_b_val,
+                adjustment_reason=" ".join(flags_b) if flags_b else None,
+            ),
+            recent_performance=perf_b,
+            performance_flags=flags_b,
+            context_message="",
+            on_bye=False,
+        )
+
+        winner_name = (
+            player_a.name
+            if comparison["winner"] == "A"
+            else (player_b.name if comparison["winner"] == "B" else "Toss-up")
+        )
+
+        return ComparisonResult(
+            player_a=enhanced_a,
+            player_b=enhanced_b,
+            winner=comparison["winner"],
+            winner_name=winner_name,
+            conviction=comparison["conviction"],
+            reasoning=comparison["reasoning"],
+            key_advantages_a=comparison["key_advantages_a"],
+            key_advantages_b=comparison["key_advantages_b"],
+            matchup_edge=comparison["matchup_edge"],
+            sources_used=comparison["sources_used"],
+        )
+    except Exception as e:
+        logger.error(f"Error in compare_players: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
