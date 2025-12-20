@@ -319,12 +319,16 @@ async def compare_players(player_a_id: str, player_b_id: str):
     engine = get_enhancement_engine()
     gemini_service = get_gemini_service()
 
-    # Fetch both players
-    player_a = await client.get_player_by_id(player_a_id)
-    player_b = await client.get_player_by_id(player_b_id)
+    # Fetch both players (returns dict, not object)
+    player_a_data = await client.get_player(player_a_id)
+    player_b_data = await client.get_player(player_b_id)
 
-    if not player_a or not player_b:
+    if not player_a_data or not player_b_data:
         raise HTTPException(status_code=404, detail="One or both players not found")
+
+    # Convert to PlayerBase objects
+    player_a = PlayerBase(**player_a_data)
+    player_b = PlayerBase(**player_b_data)
 
     # Get enhanced data for both
     proj_a = await client.get_player_projection(player_a_id)
@@ -340,8 +344,9 @@ async def compare_players(player_a_id: str, player_b_id: str):
     perf_a = engine.calculate_recent_performance(stats_a)
     perf_b = engine.calculate_recent_performance(stats_b)
 
-    flags_a = engine.calculate_flags(perf_a, proj_a_val, player_a.position)
-    flags_b = engine.calculate_flags(perf_b, proj_b_val, player_b.position)
+    # calculate_flags expects (projection, recent_performance)
+    flags_a = engine.calculate_flags(proj_a_val, perf_a) if perf_a else []
+    flags_b = engine.calculate_flags(proj_b_val, perf_b) if perf_b else []
 
     # Get Gemini comparison
     comparison = await gemini_service.compare_players(
@@ -366,12 +371,14 @@ async def compare_players(player_a_id: str, player_b_id: str):
             sleeper_projection=proj_a_val,
             adjusted_projection=engine.calculate_adjusted_projection(
                 proj_a_val, perf_a, flags_a
-            ),
+            )
+            if perf_a
+            else proj_a_val,
             adjustment_reason=" ".join(flags_a) if flags_a else None,
         ),
         recent_performance=perf_a,
         performance_flags=flags_a,
-        context_message=None,
+        context_message="",
         on_bye=False,
     )
 
@@ -381,12 +388,14 @@ async def compare_players(player_a_id: str, player_b_id: str):
             sleeper_projection=proj_b_val,
             adjusted_projection=engine.calculate_adjusted_projection(
                 proj_b_val, perf_b, flags_b
-            ),
+            )
+            if perf_b
+            else proj_b_val,
             adjustment_reason=" ".join(flags_b) if flags_b else None,
         ),
         recent_performance=perf_b,
         performance_flags=flags_b,
-        context_message=None,
+        context_message="",
         on_bye=False,
     )
 
