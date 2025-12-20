@@ -2,7 +2,7 @@
 Players router for dbAI Pulse API.
 """
 
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from config import get_settings
@@ -36,6 +36,163 @@ async def search_players(
     client = get_sleeper_client()
     results = await client.search_players(q, limit=limit)
     return results
+
+
+# Valid flags for the browser
+VALID_FLAGS = [
+    "BREAKOUT_CANDIDATE",
+    "TRENDING_UP",
+    "UNDERPERFORMING",
+    "DECLINING_ROLE",
+    "HIGH_CEILING",
+    "BOOM_BUST",
+    "CONSISTENT",
+]
+
+
+@router.get("/by-flag/{flag}")
+async def get_players_by_flag(
+    flag: str,
+    position: Optional[str] = Query(
+        None, description="Filter by position (QB, RB, WR, TE, K, DEF)"
+    ),
+    limit: int = Query(50, ge=1, le=100, description="Maximum results"),
+):
+    """
+    Get players that have a specific performance flag.
+    Use this to find breakout candidates, trending players, etc.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    flag_upper = flag.upper()
+    if flag_upper not in VALID_FLAGS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid flag. Valid flags: {', '.join(VALID_FLAGS)}",
+        )
+
+    client = get_sleeper_client()
+    engine = get_enhancement_engine()
+    settings = get_settings()
+
+    # Get pool of active players
+    players = await client.get_active_players_by_position(position=position, limit=200)
+
+    logger.info(f"Checking {len(players)} players for flag {flag_upper}")
+
+    matching_players = []
+
+    for player_data in players:
+        try:
+            # Get projection and recent performance
+            proj_val = await client.get_player_projection(
+                player_data["sleeper_id"], settings.nfl_season, settings.nfl_week
+            )
+
+            perf_data = await client.get_recent_performance(
+                player_data["sleeper_id"],
+                settings.nfl_season,
+                settings.nfl_week,
+                lookback=3,
+            )
+
+            # Skip players with no recent data
+            if not perf_data or perf_data.get("weeks_analyzed", 0) == 0:
+                continue
+
+            perf = RecentPerformance(**perf_data)
+
+            # Calculate flags
+            flags = engine.calculate_flags(proj_val, perf)
+
+            # Check if this player has the target flag
+            if flag_upper in flags:
+                player = PlayerBase(**player_data)
+
+                matching_players.append(
+                    {
+                        "player": player,
+                        "projection": PlayerProjection(
+                            sleeper_projection=proj_val,
+                            adjusted_projection=engine.calculate_adjusted_projection(
+                                proj_val, perf, flags
+                            ),
+                        ),
+                        "recent_performance": perf,
+                        "performance_flags": flags,
+                        "context_message": f"L{perf.weeks_analyzed}W avg: {perf.avg_points} pts",
+                        "on_bye": player.bye_week == settings.nfl_week,
+                    }
+                )
+
+                if len(matching_players) >= limit:
+                    break
+
+        except Exception as e:
+            logger.warning(f"Error processing player {player_data.get('name')}: {e}")
+            continue
+
+    # Sort by avg points descending
+    matching_players.sort(
+        key=lambda p: p["recent_performance"].avg_points
+        if p["recent_performance"]
+        else 0,
+        reverse=True,
+    )
+
+    logger.info(f"Found {len(matching_players)} players with flag {flag_upper}")
+
+    return {
+        "flag": flag_upper,
+        "count": len(matching_players),
+        "players": matching_players,
+    }
+
+
+@router.get("/flags/available")
+async def get_available_flags():
+    """Get list of available flags for the browser."""
+    return {
+        "flags": [
+            {
+                "id": "BREAKOUT_CANDIDATE",
+                "label": "🚀 Breakout",
+                "description": "L3W avg > 150% of projection",
+            },
+            {
+                "id": "TRENDING_UP",
+                "label": "📈 Trending Up",
+                "description": "L3W avg > 120% of projection",
+            },
+            {
+                "id": "UNDERPERFORMING",
+                "label": "📉 Underperforming",
+                "description": "L3W avg < 80% of projection",
+            },
+            {
+                "id": "DECLINING_ROLE",
+                "label": "⚠️ Declining",
+                "description": "L3W avg < 70% of projection",
+            },
+            {
+                "id": "HIGH_CEILING",
+                "label": "🎯 High Ceiling",
+                "description": "Best week > 200% of projection",
+            },
+            {
+                "id": "BOOM_BUST",
+                "label": "🎰 Boom/Bust",
+                "description": "High variance player",
+            },
+            {
+                "id": "CONSISTENT",
+                "label": "✅ Consistent",
+                "description": "Low variance, reliable",
+            },
+        ]
+    }
 
 
 @router.get("/{sleeper_id}", response_model=EnhancedPlayer)

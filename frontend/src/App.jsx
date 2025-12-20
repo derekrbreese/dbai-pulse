@@ -3,6 +3,7 @@ import PlayerSearch from './components/PlayerSearch'
 import EnhancedCard from './components/EnhancedCard'
 import PerformanceChart from './components/PerformanceChart'
 import ComparisonView from './components/ComparisonView'
+import FlagsBrowser from './components/FlagsBrowser'
 import './App.css'
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [showComparison, setShowComparison] = useState(false)
+  const [showFlagsBrowser, setShowFlagsBrowser] = useState(false)
 
   const handlePlayerSelect = useCallback(async (player) => {
     setSelectedPlayer(player)
@@ -40,13 +42,23 @@ function App() {
         </h1>
         <p className="tagline">Fantasy Football Intelligence Dashboard</p>
 
-        {/* Compare Button */}
-        <button
-          className="compare-nav-button"
-          onClick={() => setShowComparison(true)}
-        >
-          🔄 Compare Players
-        </button>
+        <div className="header-buttons">
+          {/* Flags Browser Button */}
+          <button
+            className="flags-nav-button"
+            onClick={() => setShowFlagsBrowser(true)}
+          >
+            🚩 Browse Flags
+          </button>
+
+          {/* Compare Button */}
+          <button
+            className="compare-nav-button"
+            onClick={() => setShowComparison(true)}
+          >
+            🔄 Compare
+          </button>
+        </div>
       </header>
 
       <main className="app-main">
@@ -93,6 +105,11 @@ function App() {
       {/* Comparison Modal */}
       {showComparison && (
         <ComparisonView onClose={() => setShowComparison(false)} />
+      )}
+
+      {/* Flags Browser Modal */}
+      {showFlagsBrowser && (
+        <FlagsBrowser onClose={() => setShowFlagsBrowser(false)} />
       )}
     </div>
   )

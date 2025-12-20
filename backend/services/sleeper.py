@@ -105,6 +105,44 @@ class SleeperClient:
             "bye_week": player.get("bye_week"),
         }
 
+    async def get_active_players_by_position(
+        self, position: Optional[str] = None, limit: int = 200
+    ) -> List[Dict[str, Any]]:
+        """
+        Get active NFL players, optionally filtered by position.
+        Returns players with teams (active) sorted by search rank.
+        """
+        players = await self.get_all_players()
+        valid_positions = ("QB", "RB", "WR", "TE", "K", "DEF")
+
+        results = []
+        for player_id, player in players.items():
+            pos = player.get("position", "")
+            team = player.get("team")
+
+            # Only active players with teams
+            if not team or pos not in valid_positions:
+                continue
+
+            # Position filter
+            if position and pos != position:
+                continue
+
+            results.append(
+                {
+                    "sleeper_id": player_id,
+                    "name": f"{player.get('first_name', '')} {player.get('last_name', '')}",
+                    "position": pos,
+                    "team": team,
+                    "bye_week": player.get("bye_week"),
+                    "search_rank": player.get("search_rank", 9999),
+                }
+            )
+
+        # Sort by search rank (lower = more relevant)
+        results.sort(key=lambda p: p.get("search_rank", 9999))
+        return results[:limit]
+
     async def get_projections(self, season: int, week: int) -> Dict[str, Any]:
         """
         Get weekly projections for all players.
