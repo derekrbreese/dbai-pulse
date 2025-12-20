@@ -43,12 +43,12 @@ function App() {
         <p className="tagline">Fantasy Football Intelligence Dashboard</p>
 
         <div className="header-buttons">
-          {/* Flags Browser Button */}
+          {/* Trends & Insights Button */}
           <button
-            className="flags-nav-button"
+            className="trends-nav-button"
             onClick={() => setShowFlagsBrowser(true)}
           >
-            🚩 Browse Flags
+            📊 Trends
           </button>
 
           {/* Compare Button */}

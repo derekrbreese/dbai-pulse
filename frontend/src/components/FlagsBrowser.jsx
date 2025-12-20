@@ -57,10 +57,10 @@ function FlagsBrowser({ onClose }) {
                 {/* Header */}
                 <div className="flags-header">
                     <div className="flags-title">
-                        <span className="flags-icon">🚩</span>
+                        <span className="flags-icon">📊</span>
                         <div>
-                            <h2>Flags Browser</h2>
-                            <p className="flags-subtitle">Find players by performance trends</p>
+                            <h2>Trends & Insights</h2>
+                            <p className="flags-subtitle">Discover breakout players and performance patterns</p>
                         </div>
                     </div>
                     <button className="flags-close" onClick={onClose}>✕</button>
