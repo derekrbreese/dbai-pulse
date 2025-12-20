@@ -135,12 +135,12 @@ class SleeperClient:
                     "position": pos,
                     "team": team,
                     "bye_week": player.get("bye_week"),
-                    "search_rank": player.get("search_rank", 9999),
+                    "search_rank": player.get("search_rank") or 9999,
                 }
             )
 
-        # Sort by search rank (lower = more relevant)
-        results.sort(key=lambda p: p.get("search_rank", 9999))
+        # Sort by search rank (lower = more relevant), handle None
+        results.sort(key=lambda p: p.get("search_rank") or 9999)
         return results[:limit]
 
     async def get_projections(self, season: int, week: int) -> Dict[str, Any]:

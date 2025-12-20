@@ -63,92 +63,105 @@ async def get_players_by_flag(
     Use this to find breakout candidates, trending players, etc.
     """
     import logging
+    import traceback
 
     logger = logging.getLogger(__name__)
 
-    flag_upper = flag.upper()
-    if flag_upper not in VALID_FLAGS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid flag. Valid flags: {', '.join(VALID_FLAGS)}",
+    try:
+        flag_upper = flag.upper()
+        if flag_upper not in VALID_FLAGS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid flag. Valid flags: {', '.join(VALID_FLAGS)}",
+            )
+
+        client = get_sleeper_client()
+        engine = get_enhancement_engine()
+        settings = get_settings()
+
+        # Get pool of active players
+        players = await client.get_active_players_by_position(
+            position=position, limit=200
         )
 
-    client = get_sleeper_client()
-    engine = get_enhancement_engine()
-    settings = get_settings()
+        logger.info(f"Checking {len(players)} players for flag {flag_upper}")
 
-    # Get pool of active players
-    players = await client.get_active_players_by_position(position=position, limit=200)
+        matching_players = []
 
-    logger.info(f"Checking {len(players)} players for flag {flag_upper}")
-
-    matching_players = []
-
-    for player_data in players:
-        try:
-            # Get projection and recent performance
-            proj_val = await client.get_player_projection(
-                player_data["sleeper_id"], settings.nfl_season, settings.nfl_week
-            )
-
-            perf_data = await client.get_recent_performance(
-                player_data["sleeper_id"],
-                settings.nfl_season,
-                settings.nfl_week,
-                lookback=3,
-            )
-
-            # Skip players with no recent data
-            if not perf_data or perf_data.get("weeks_analyzed", 0) == 0:
-                continue
-
-            perf = RecentPerformance(**perf_data)
-
-            # Calculate flags
-            flags = engine.calculate_flags(proj_val, perf)
-
-            # Check if this player has the target flag
-            if flag_upper in flags:
-                player = PlayerBase(**player_data)
-
-                matching_players.append(
-                    {
-                        "player": player,
-                        "projection": PlayerProjection(
-                            sleeper_projection=proj_val,
-                            adjusted_projection=engine.calculate_adjusted_projection(
-                                proj_val, perf, flags
-                            ),
-                        ),
-                        "recent_performance": perf,
-                        "performance_flags": flags,
-                        "context_message": f"L{perf.weeks_analyzed}W avg: {perf.avg_points} pts",
-                        "on_bye": player.bye_week == settings.nfl_week,
-                    }
+        for player_data in players:
+            try:
+                # Get projection and recent performance
+                proj_val = await client.get_player_projection(
+                    player_data["sleeper_id"], settings.nfl_season, settings.nfl_week
                 )
 
-                if len(matching_players) >= limit:
-                    break
+                perf_data = await client.get_recent_performance(
+                    player_data["sleeper_id"],
+                    settings.nfl_season,
+                    settings.nfl_week,
+                    lookback=3,
+                )
 
-        except Exception as e:
-            logger.warning(f"Error processing player {player_data.get('name')}: {e}")
-            continue
+                # Skip players with no recent data
+                if not perf_data or perf_data.get("weeks_analyzed", 0) == 0:
+                    continue
 
-    # Sort by avg points descending
-    matching_players.sort(
-        key=lambda p: p["recent_performance"].avg_points
-        if p["recent_performance"]
-        else 0,
-        reverse=True,
-    )
+                perf = RecentPerformance(**perf_data)
 
-    logger.info(f"Found {len(matching_players)} players with flag {flag_upper}")
+                # Calculate flags
+                flags = engine.calculate_flags(proj_val, perf)
 
-    return {
-        "flag": flag_upper,
-        "count": len(matching_players),
-        "players": matching_players,
-    }
+                # Check if this player has the target flag
+                if flag_upper in flags:
+                    player = PlayerBase(**player_data)
+                    projection = PlayerProjection(
+                        sleeper_projection=proj_val,
+                        adjusted_projection=engine.calculate_adjusted_projection(
+                            proj_val, perf, flags
+                        ),
+                    )
+
+                    matching_players.append(
+                        {
+                            "player": player.model_dump(),
+                            "projection": projection.model_dump(),
+                            "recent_performance": perf.model_dump(),
+                            "performance_flags": flags,
+                            "context_message": f"L{perf.weeks_analyzed}W avg: {perf.avg_points} pts",
+                            "on_bye": player.bye_week == settings.nfl_week,
+                        }
+                    )
+
+                    if len(matching_players) >= limit:
+                        break
+
+            except Exception as e:
+                logger.warning(
+                    f"Error processing player {player_data.get('name')}: {e}"
+                )
+                continue
+
+        # Sort by avg points descending
+        matching_players.sort(
+            key=lambda p: p["recent_performance"]["avg_points"]
+            if p["recent_performance"]
+            else 0,
+            reverse=True,
+        )
+
+        logger.info(f"Found {len(matching_players)} players with flag {flag_upper}")
+
+        return {
+            "flag": flag_upper,
+            "count": len(matching_players),
+            "players": matching_players,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in get_players_by_flag: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/flags/available")
