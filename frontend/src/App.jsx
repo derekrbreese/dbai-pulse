@@ -82,12 +82,6 @@ function App() {
             <div className="empty-icon">🏈</div>
             <h2>Search for a player</h2>
             <p>Get enhanced projections, performance flags, and AI-powered insights</p>
-            <button
-              className="compare-cta-button"
-              onClick={() => setShowComparison(true)}
-            >
-              🔄 Or compare two players head-to-head
-            </button>
           </div>
         )}
       </main>
