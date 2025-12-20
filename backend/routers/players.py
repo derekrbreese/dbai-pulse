@@ -82,8 +82,9 @@ async def get_players_by_flag(
         settings = get_settings()
 
         # Get pool of active players
+        pool_size = min(2000, max(500, limit * 20))
         players = await client.get_active_players_by_position(
-            position=position, limit=200
+            position=position, limit=pool_size
         )
 
         print(f"[DEBUG] Checking {len(players)} players for flag {flag_upper}")
@@ -122,15 +123,23 @@ async def get_players_by_flag(
 
                 perf = RecentPerformance(**perf_data)
 
-                # Fallback to recent projection avg, then L3W avg
-                if projection_value == 0 and perf:
+                # Fallback to recent projection avg, then prior-week avg, then L3W avg
+                previous_avg = 0.0
+                if len(perf.weekly_points) > 1:
+                    previous_avg = sum(perf.weekly_points[1:]) / (
+                        len(perf.weekly_points) - 1
+                    )
+
+                if projection_value == 0 and not on_bye:
                     projection_value = await client.get_recent_projection_avg(
                         player_data["sleeper_id"],
                         settings.nfl_season,
                         settings.nfl_week,
                         lookback=3,
                     )
-                if projection_value == 0 and perf:
+                if projection_value == 0 and previous_avg > 0:
+                    projection_value = round(previous_avg, 1)
+                if projection_value == 0:
                     projection_value = perf.avg_points
 
                 # Calculate flags
@@ -275,15 +284,23 @@ async def get_player(sleeper_id: str):
     if recent_data["weeks_analyzed"] > 0:
         recent_performance = RecentPerformance(**recent_data)
 
-    # Fallback: use recent projection avg, then L3W avg
+    # Fallback: use recent projection avg, then prior-week avg, then L3W avg
     # This happens during off-season or for past weeks
     projection_source = "sleeper"
+    previous_avg = 0.0
+    if recent_performance and len(recent_performance.weekly_points) > 1:
+        previous_avg = sum(recent_performance.weekly_points[1:]) / (
+            len(recent_performance.weekly_points) - 1
+        )
     if projection_value == 0 and recent_performance:
         projection_value = await client.get_recent_projection_avg(
             sleeper_id, settings.nfl_season, settings.nfl_week, lookback=3
         )
         if projection_value > 0:
             projection_source = "recent_projection"
+    if projection_value == 0 and previous_avg > 0:
+        projection_value = round(previous_avg, 1)
+        projection_source = "recent_baseline"
     if projection_value == 0 and recent_performance:
         projection_value = recent_performance.avg_points
         projection_source = "recent_avg"
@@ -316,6 +333,8 @@ async def get_player(sleeper_id: str):
         )
     elif projection_source == "recent_projection":
         context = "Using recent projection avg"
+    elif projection_source == "recent_baseline":
+        context = "Using prior-week avg baseline"
     elif flags:
         # Prioritize important flags for context
         main_flag = flags[0].replace("_", " ")
@@ -425,14 +444,22 @@ async def get_player_pulse(sleeper_id: str):
     if recent_data["weeks_analyzed"] > 0:
         recent_performance = RecentPerformance(**recent_data)
 
-    # Fallback: use recent projection avg, then L3W avg
+    # Fallback: use recent projection avg, then prior-week avg, then L3W avg
     projection_source = "sleeper"
+    previous_avg = 0.0
+    if recent_performance and len(recent_performance.weekly_points) > 1:
+        previous_avg = sum(recent_performance.weekly_points[1:]) / (
+            len(recent_performance.weekly_points) - 1
+        )
     if projection_value == 0 and recent_performance:
         projection_value = await client.get_recent_projection_avg(
             sleeper_id, settings.nfl_season, settings.nfl_week, lookback=3
         )
         if projection_value > 0:
             projection_source = "recent_projection"
+    if projection_value == 0 and previous_avg > 0:
+        projection_value = round(previous_avg, 1)
+        projection_source = "recent_baseline"
     if projection_value == 0 and recent_performance:
         projection_value = recent_performance.avg_points
         projection_source = "recent_avg"
@@ -465,6 +492,8 @@ async def get_player_pulse(sleeper_id: str):
         )
     elif projection_source == "recent_projection":
         context = "Using recent projection avg"
+    elif projection_source == "recent_baseline":
+        context = "Using prior-week avg baseline"
     elif flags:
         main_flag = flags[0].replace("_", " ")
         context = f"{main_flag}"
