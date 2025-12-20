@@ -294,8 +294,18 @@ Respond ONLY with valid JSON."""
                 config=config,
             )
 
-            response_text = response.text.strip()
-            logger.info(f"Comparison response: {response_text[:300]}...")
+            # Handle potentially empty response
+            response_text = ""
+            if response and response.text:
+                response_text = response.text.strip()
+
+            logger.info(f"Comparison response length: {len(response_text)}")
+            if response_text:
+                logger.info(f"Comparison response: {response_text[:300]}...")
+
+            if not response_text:
+                logger.warning("Gemini returned empty response for comparison")
+                raise ValueError("Empty response from Gemini")
 
             result = GeminiSynthesis._extract_json(response_text)
 
