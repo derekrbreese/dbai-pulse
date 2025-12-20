@@ -25,8 +25,8 @@ class Settings(BaseSettings):
 
     # Current NFL season/week
     # Update these values as the season progresses
-    nfl_season: int = 2025  # Current NFL season
-    nfl_week: int = 16  # Current week (December 2025)
+    nfl_season: int = 2024  # Current NFL season
+    nfl_week: int = 16  # Current week (December 2024)
 
     class Config:
         env_file = ".env"

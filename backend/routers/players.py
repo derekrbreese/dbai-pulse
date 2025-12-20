@@ -67,6 +67,8 @@ async def get_players_by_flag(
 
     logger = logging.getLogger(__name__)
 
+    print(f"[DEBUG] get_players_by_flag called with flag={flag}, position={position}")
+
     try:
         flag_upper = flag.upper()
         if flag_upper not in VALID_FLAGS:
@@ -84,6 +86,7 @@ async def get_players_by_flag(
             position=position, limit=200
         )
 
+        print(f"[DEBUG] Checking {len(players)} players for flag {flag_upper}")
         logger.info(f"Checking {len(players)} players for flag {flag_upper}")
 
         matching_players = []
@@ -91,9 +94,14 @@ async def get_players_by_flag(
         for player_data in players:
             try:
                 # Get projection and recent performance
-                proj_val = await client.get_player_projection(
-                    player_data["sleeper_id"], settings.nfl_season, settings.nfl_week
-                )
+                on_bye = player_data.get("bye_week") == settings.nfl_week
+                projection_value = 0.0
+                if not on_bye:
+                    projection_value = await client.get_player_projection(
+                        player_data["sleeper_id"],
+                        settings.nfl_season,
+                        settings.nfl_week,
+                    )
 
                 perf_data = await client.get_recent_performance(
                     player_data["sleeper_id"],
@@ -102,22 +110,40 @@ async def get_players_by_flag(
                     lookback=3,
                 )
 
+                # Log first few players for debugging
+                if len(matching_players) < 3:
+                    logger.info(
+                        f"Processing player {player_data['name']}: perf_data={perf_data}"
+                    )
+
                 # Skip players with no recent data
                 if not perf_data or perf_data.get("weeks_analyzed", 0) == 0:
                     continue
 
                 perf = RecentPerformance(**perf_data)
 
+                # Fallback to L3W avg when projections are missing
+                if projection_value == 0 and perf:
+                    projection_value = perf.avg_points
+
                 # Calculate flags
-                flags = engine.calculate_flags(proj_val, perf)
+                flags = []
+                if not on_bye and projection_value > 0:
+                    flags = engine.calculate_flags(projection_value, perf)
+
+                # Debug logging for first 5 players
+                if len(matching_players) < 5 or flag_upper in flags:
+                    logger.info(
+                        f"Player: {player_data['name']}, proj={projection_value}, avg={perf.avg_points}, flags={flags}"
+                    )
 
                 # Check if this player has the target flag
                 if flag_upper in flags:
                     player = PlayerBase(**player_data)
                     projection = PlayerProjection(
-                        sleeper_projection=proj_val,
+                        sleeper_projection=projection_value,
                         adjusted_projection=engine.calculate_adjusted_projection(
-                            proj_val, perf, flags
+                            projection_value, perf, flags
                         ),
                     )
 
@@ -128,7 +154,7 @@ async def get_players_by_flag(
                             "recent_performance": perf.model_dump(),
                             "performance_flags": flags,
                             "context_message": f"L{perf.weeks_analyzed}W avg: {perf.avg_points} pts",
-                            "on_bye": player.bye_week == settings.nfl_week,
+                            "on_bye": on_bye,
                         }
                     )
 
