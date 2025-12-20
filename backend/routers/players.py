@@ -122,7 +122,14 @@ async def get_players_by_flag(
 
                 perf = RecentPerformance(**perf_data)
 
-                # Fallback to L3W avg when projections are missing
+                # Fallback to recent projection avg, then L3W avg
+                if projection_value == 0 and perf:
+                    projection_value = await client.get_recent_projection_avg(
+                        player_data["sleeper_id"],
+                        settings.nfl_season,
+                        settings.nfl_week,
+                        lookback=3,
+                    )
                 if projection_value == 0 and perf:
                     projection_value = perf.avg_points
 
@@ -268,12 +275,18 @@ async def get_player(sleeper_id: str):
     if recent_data["weeks_analyzed"] > 0:
         recent_performance = RecentPerformance(**recent_data)
 
-    # Fallback: use L3W avg as projection if Sleeper returns 0
+    # Fallback: use recent projection avg, then L3W avg
     # This happens during off-season or for past weeks
-    is_projection_fallback = False
+    projection_source = "sleeper"
+    if projection_value == 0 and recent_performance:
+        projection_value = await client.get_recent_projection_avg(
+            sleeper_id, settings.nfl_season, settings.nfl_week, lookback=3
+        )
+        if projection_value > 0:
+            projection_source = "recent_projection"
     if projection_value == 0 and recent_performance:
         projection_value = recent_performance.avg_points
-        is_projection_fallback = True
+        projection_source = "recent_avg"
 
     # Calculate flags and adjusted projection
     flags = []
@@ -296,8 +309,13 @@ async def get_player(sleeper_id: str):
     context = ""
     if on_bye:
         context = f"Player is on bye (Week {player.bye_week})"
-    elif is_projection_fallback:
-        context = f"Using L3W avg ({recent_performance.avg_points} pts)"
+    elif projection_source == "recent_avg":
+        context = (
+            f"Using L{recent_performance.weeks_analyzed}W avg "
+            f"({recent_performance.avg_points} pts)"
+        )
+    elif projection_source == "recent_projection":
+        context = "Using recent projection avg"
     elif flags:
         # Prioritize important flags for context
         main_flag = flags[0].replace("_", " ")
@@ -407,11 +425,17 @@ async def get_player_pulse(sleeper_id: str):
     if recent_data["weeks_analyzed"] > 0:
         recent_performance = RecentPerformance(**recent_data)
 
-    # Fallback: use L3W avg as projection if Sleeper returns 0
-    is_projection_fallback = False
+    # Fallback: use recent projection avg, then L3W avg
+    projection_source = "sleeper"
+    if projection_value == 0 and recent_performance:
+        projection_value = await client.get_recent_projection_avg(
+            sleeper_id, settings.nfl_season, settings.nfl_week, lookback=3
+        )
+        if projection_value > 0:
+            projection_source = "recent_projection"
     if projection_value == 0 and recent_performance:
         projection_value = recent_performance.avg_points
-        is_projection_fallback = True
+        projection_source = "recent_avg"
 
     # Calculate flags and adjusted projection
     flags = []
@@ -434,8 +458,13 @@ async def get_player_pulse(sleeper_id: str):
     context = ""
     if on_bye:
         context = f"Player is on bye (Week {player.bye_week})"
-    elif is_projection_fallback:
-        context = f"Using L3W avg ({recent_performance.avg_points} pts)"
+    elif projection_source == "recent_avg":
+        context = (
+            f"Using L{recent_performance.weeks_analyzed}W avg "
+            f"({recent_performance.avg_points} pts)"
+        )
+    elif projection_source == "recent_projection":
+        context = "Using recent projection avg"
     elif flags:
         main_flag = flags[0].replace("_", " ")
         context = f"{main_flag}"

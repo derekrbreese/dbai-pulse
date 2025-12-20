@@ -280,6 +280,29 @@ class SleeperClient:
             "weekly_points": [w["points"] for w in weekly_points],
         }
 
+    async def get_recent_projection_avg(
+        self, sleeper_id: str, season: int, current_week: int, lookback: int = 3
+    ) -> float:
+        """
+        Get average projection over recent weeks.
+        Returns 0.0 if no projections are available.
+        """
+        projections = []
+
+        for i in range(1, lookback + 1):
+            week = current_week - i
+            if week < 1:
+                break
+
+            proj = await self.get_player_projection(sleeper_id, season, week)
+            if proj:
+                projections.append(float(proj))
+
+        if not projections:
+            return 0.0
+
+        return round(sum(projections) / len(projections), 1)
+
 
 # Singleton instance
 _client: Optional[SleeperClient] = None
