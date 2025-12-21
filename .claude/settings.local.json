@@ -3,7 +3,9 @@
     "allow": [
       "Bash(source:*)",
       "Bash(python:*)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(npm run dev:*)",
+      "Bash(cat:*)"
     ]
   }
 }
