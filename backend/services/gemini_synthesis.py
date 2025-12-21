@@ -26,7 +26,7 @@ class GeminiSynthesis:
     def _extract_json(text: str) -> Dict:
         """
         Robustly extract JSON from Gemini response text.
-        Handles markdown blocks, extra text, and malformed responses.
+        Handles markdown blocks, extra text, truncated responses, and malformed JSON.
         """
         # First, try to find JSON in markdown code blocks
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
@@ -42,7 +42,14 @@ class GeminiSynthesis:
             try:
                 return json.loads(json_match.group(0))
             except json.JSONDecodeError:
-                pass
+                # Try to fix truncated JSON
+                json_text = json_match.group(0)
+                fixed = GeminiSynthesis._fix_truncated_json(json_text)
+                if fixed:
+                    try:
+                        return json.loads(fixed)
+                    except json.JSONDecodeError:
+                        pass
 
         # If all else fails, try parsing the whole thing
         try:
@@ -50,6 +57,35 @@ class GeminiSynthesis:
         except json.JSONDecodeError:
             logger.error(f"Could not extract JSON from response: {text[:200]}...")
             raise
+
+    @staticmethod
+    def _fix_truncated_json(text: str) -> Optional[str]:
+        """
+        Attempt to fix truncated JSON by closing open strings, arrays, and objects.
+        """
+        # Count unbalanced brackets
+        open_braces = text.count('{') - text.count('}')
+        open_brackets = text.count('[') - text.count(']')
+
+        # Check if we're in the middle of a string (odd number of unescaped quotes)
+        in_string = False
+        i = 0
+        while i < len(text):
+            if text[i] == '"' and (i == 0 or text[i-1] != '\\'):
+                in_string = not in_string
+            i += 1
+
+        fixed = text
+
+        # Close open string
+        if in_string:
+            fixed += '"'
+
+        # Close arrays and objects
+        fixed += ']' * open_brackets
+        fixed += '}' * open_braces
+
+        return fixed if fixed != text else None
 
     @staticmethod
     def create_synthesis_prompt(
@@ -150,11 +186,11 @@ Respond ONLY with valid JSON, no markdown formatting."""
                 types.Tool(googleSearch=types.GoogleSearch()),
             ]
 
-            # Configure generation with thinking
+            # Configure generation - increased token limit for complete JSON responses
             generate_content_config = types.GenerateContentConfig(
                 tools=tools,
                 temperature=0.7,
-                max_output_tokens=2048,
+                max_output_tokens=4096,
             )
 
             # Generate response with search grounding
@@ -285,7 +321,7 @@ Respond ONLY with valid JSON."""
             config = types.GenerateContentConfig(
                 tools=tools,
                 temperature=0.7,
-                max_output_tokens=2048,
+                max_output_tokens=4096,
             )
 
             response = client.models.generate_content(

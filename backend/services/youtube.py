@@ -37,10 +37,12 @@ class YouTubeService:
             Combined transcript text or None if unavailable
         """
         try:
-            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            # youtube-transcript-api 1.x uses instance-based API
+            ytt_api = YouTubeTranscriptApi()
+            transcript_list = ytt_api.fetch(video_id)
 
             # Combine all transcript segments
-            full_text = " ".join([entry["text"] for entry in transcript_list])
+            full_text = " ".join([entry.text for entry in transcript_list])
 
             logger.info(
                 f"Fetched transcript for video {video_id}, length: {len(full_text)} chars"
