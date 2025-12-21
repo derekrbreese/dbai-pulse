@@ -109,7 +109,10 @@ function App() {
 
       {/* Flags Browser Modal */}
       {showFlagsBrowser && (
-        <FlagsBrowser onClose={() => setShowFlagsBrowser(false)} />
+        <FlagsBrowser
+          onClose={() => setShowFlagsBrowser(false)}
+          onPlayerSelect={handlePlayerSelect}
+        />
       )}
     </div>
   )

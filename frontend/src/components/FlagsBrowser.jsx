@@ -14,7 +14,7 @@ const FLAGS = [
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE']
 
-function FlagsBrowser({ onClose }) {
+function FlagsBrowser({ onClose, onPlayerSelect }) {
     const [selectedFlag, setSelectedFlag] = useState('BREAKOUT_CANDIDATE')
     const [selectedPosition, setSelectedPosition] = useState('ALL')
     const [players, setPlayers] = useState([])
@@ -49,6 +49,13 @@ function FlagsBrowser({ onClose }) {
 
     const getPositionClass = (position) => {
         return `position-${position?.toLowerCase()}`
+    }
+
+    const handleCardClick = (playerData) => {
+        if (onPlayerSelect) {
+            onPlayerSelect(playerData.player)
+        }
+        onClose()
     }
 
     const modalContent = (
@@ -115,7 +122,7 @@ function FlagsBrowser({ onClose }) {
                     {!loading && players.length > 0 && (
                         <div className="player-grid">
                             {players.map(p => (
-                                <div key={p.player.sleeper_id} className="player-card-mini">
+                                <div key={p.player.sleeper_id} className="player-card-mini" onClick={() => handleCardClick(p)}>
                                     <div className="player-card-header">
                                         <span className={`player-position ${getPositionClass(p.player.position)}`}>
                                             {p.player.position}
