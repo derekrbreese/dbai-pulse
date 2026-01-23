@@ -6,7 +6,7 @@ Free, no auth required.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from cachetools import TTLCache
 
@@ -20,6 +20,7 @@ _projections_cache: TTLCache = TTLCache(
     maxsize=100, ttl=get_settings().sleeper_cache_ttl
 )
 _stats_cache: TTLCache = TTLCache(maxsize=500, ttl=get_settings().sleeper_cache_ttl)
+_state_cache: TTLCache = TTLCache(maxsize=1, ttl=get_settings().sleeper_cache_ttl)
 
 
 class SleeperClient:
@@ -49,6 +50,37 @@ class SleeperClient:
         _players_cache = response.json()
         logger.info(f"Cached {len(_players_cache)} players")
         return _players_cache
+
+    async def get_nfl_state(self) -> Dict[str, Any]:
+        cache_key = "nfl_state"
+
+        if cache_key in _state_cache:
+            return _state_cache[cache_key]
+
+        response = await self.client.get(f"{self.base_url}/state/nfl")
+        response.raise_for_status()
+        data = response.json()
+        _state_cache[cache_key] = data
+        return data
+
+    async def get_current_season_week(
+        self, fallback_season: int, fallback_week: int
+    ) -> Tuple[int, int]:
+        try:
+            state = await self.get_nfl_state()
+            season = state.get("season")
+            week = state.get("week")
+            season_type = state.get("season_type")
+
+            if season_type and season_type != "regular":
+                return fallback_season, fallback_week
+            if not season or not week:
+                return fallback_season, fallback_week
+
+            return int(season), int(week)
+        except Exception as exc:
+            logger.warning(f"Failed to resolve current season/week: {exc}")
+            return fallback_season, fallback_week
 
     async def search_players(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """

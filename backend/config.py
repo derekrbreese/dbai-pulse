@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     # API Keys
     gemini_api_key: str = ""
+    youtube_api_key: str = ""
     reddit_client_id: str = ""
     reddit_client_secret: str = ""
     reddit_username: str = ""
@@ -25,8 +26,8 @@ class Settings(BaseSettings):
 
     # Current NFL season/week
     # Update these values as the season progresses
-    nfl_season: int = 2024  # Current NFL season
-    nfl_week: int = 16  # Current week (December 2024)
+    nfl_season: int = 2025  # Current NFL season
+    nfl_week: int = 16  # Default week for offseason
 
     class Config:
         env_file = ".env"

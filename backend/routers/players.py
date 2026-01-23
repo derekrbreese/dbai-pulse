@@ -19,6 +19,7 @@ from models.schemas import (
     PulseResult,
     GeminiAnalysis,
     ComparisonResult,
+    ExpertTake,
 )
 
 router = APIRouter()
@@ -80,6 +81,9 @@ async def get_players_by_flag(
         client = get_sleeper_client()
         engine = get_enhancement_engine()
         settings = get_settings()
+        current_season, current_week = await client.get_current_season_week(
+            settings.nfl_season, settings.nfl_week
+        )
 
         # Get pool of active players
         pool_size = min(2000, max(500, limit * 20))
@@ -95,19 +99,19 @@ async def get_players_by_flag(
         for player_data in players:
             try:
                 # Get projection and recent performance
-                on_bye = player_data.get("bye_week") == settings.nfl_week
+                on_bye = player_data.get("bye_week") == current_week
                 projection_value = 0.0
                 if not on_bye:
                     projection_value = await client.get_player_projection(
                         player_data["sleeper_id"],
-                        settings.nfl_season,
-                        settings.nfl_week,
+                        current_season,
+                        current_week,
                     )
 
                 perf_data = await client.get_recent_performance(
                     player_data["sleeper_id"],
-                    settings.nfl_season,
-                    settings.nfl_week,
+                    current_season,
+                    current_week,
                     lookback=3,
                 )
 
@@ -133,8 +137,8 @@ async def get_players_by_flag(
                 if projection_value == 0 and not on_bye:
                     projection_value = await client.get_recent_projection_avg(
                         player_data["sleeper_id"],
-                        settings.nfl_season,
-                        settings.nfl_week,
+                        current_season,
+                        current_week,
                         lookback=3,
                     )
                 if projection_value == 0 and previous_avg > 0:
@@ -257,6 +261,9 @@ async def get_player(sleeper_id: str):
     """
     client = get_sleeper_client()
     settings = get_settings()
+    current_season, current_week = await client.get_current_season_week(
+        settings.nfl_season, settings.nfl_week
+    )
 
     # Get base player info
     player_data = await client.get_player(sleeper_id)
@@ -266,18 +273,18 @@ async def get_player(sleeper_id: str):
     player = PlayerBase(**player_data)
 
     # Check bye week
-    on_bye = player.bye_week == settings.nfl_week
+    on_bye = player.bye_week == current_week
 
     # Get projection
     projection_value = 0.0
     if not on_bye:
         projection_value = await client.get_player_projection(
-            sleeper_id, settings.nfl_season, settings.nfl_week
+            sleeper_id, current_season, current_week
         )
 
     # Get recent performance
     recent_data = await client.get_recent_performance(
-        sleeper_id, settings.nfl_season, settings.nfl_week
+        sleeper_id, current_season, current_week
     )
 
     recent_performance = None
@@ -294,7 +301,7 @@ async def get_player(sleeper_id: str):
         )
     if projection_value == 0 and recent_performance:
         projection_value = await client.get_recent_projection_avg(
-            sleeper_id, settings.nfl_season, settings.nfl_week, lookback=3
+            sleeper_id, current_season, current_week, lookback=3
         )
         if projection_value > 0:
             projection_source = "recent_projection"
@@ -365,6 +372,9 @@ async def get_player_trends(sleeper_id: str, lookback: int = Query(3, ge=1, le=8
     """
     client = get_sleeper_client()
     settings = get_settings()
+    current_season, current_week = await client.get_current_season_week(
+        settings.nfl_season, settings.nfl_week
+    )
 
     # Verify player exists
     player_data = await client.get_player(sleeper_id)
@@ -374,13 +384,13 @@ async def get_player_trends(sleeper_id: str, lookback: int = Query(3, ge=1, le=8
     # Get weekly data
     weekly_data = []
     for i in range(1, lookback + 1):
-        week = settings.nfl_week - i
+        week = current_week - i
         if week < 1:
             break
 
-        stats = await client.get_player_stats(sleeper_id, settings.nfl_season, week)
+        stats = await client.get_player_stats(sleeper_id, current_season, week)
         projection = await client.get_player_projection(
-            sleeper_id, settings.nfl_season, week
+            sleeper_id, current_season, week
         )
 
         points = 0.0
@@ -417,6 +427,9 @@ async def get_player_pulse(sleeper_id: str):
     """
     client = get_sleeper_client()
     settings = get_settings()
+    current_season, current_week = await client.get_current_season_week(
+        settings.nfl_season, settings.nfl_week
+    )
 
     # Get base player data (reuse existing endpoint logic)
     player_data = await client.get_player(sleeper_id)
@@ -426,18 +439,18 @@ async def get_player_pulse(sleeper_id: str):
     player = PlayerBase(**player_data)
 
     # Check bye week
-    on_bye = player.bye_week == settings.nfl_week
+    on_bye = player.bye_week == current_week
 
     # Get projection
     projection_value = 0.0
     if not on_bye:
         projection_value = await client.get_player_projection(
-            sleeper_id, settings.nfl_season, settings.nfl_week
+            sleeper_id, current_season, current_week
         )
 
     # Get recent performance
     recent_data = await client.get_recent_performance(
-        sleeper_id, settings.nfl_season, settings.nfl_week
+        sleeper_id, current_season, current_week
     )
 
     recent_performance = None
@@ -453,7 +466,7 @@ async def get_player_pulse(sleeper_id: str):
         )
     if projection_value == 0 and recent_performance:
         projection_value = await client.get_recent_projection_avg(
-            sleeper_id, settings.nfl_season, settings.nfl_week, lookback=3
+            sleeper_id, current_season, current_week, lookback=3
         )
         if projection_value > 0:
             projection_source = "recent_projection"
@@ -516,27 +529,70 @@ async def get_player_pulse(sleeper_id: str):
         on_bye=on_bye,
     )
 
-    # For MVP: Use hardcoded YouTube video IDs (we'll add search later)
-    # These are popular fantasy football analysis videos
+    # Search YouTube for expert takes on this player
     youtube_service = get_youtube_service()
+    expert_takes = []
+    youtube_context_parts = []
 
-    # Example video IDs - replace with actual search results in production
-    sample_video_ids = [
-        "dQw4w9WgXcQ",  # Placeholder - will be replaced with real search
-    ]
+    # Search for videos mentioning this player (curated channels first, then general)
+    # Using 90 days to handle offseason testing
+    video_results = youtube_service.search_videos(
+        player_name=player.name,
+        max_results=5,
+        days_back=90,
+    )
 
     # Fetch transcripts and extract player mentions
-    youtube_context = ""
-    for video_id in sample_video_ids[:1]:  # Start with 1 video for MVP
-        transcript = youtube_service.get_transcript(video_id)
+    for video in video_results[:3]:  # Limit to 3 videos for performance
+        transcript = youtube_service.get_transcript(video["video_id"])
         if transcript:
             mentions = youtube_service.extract_player_mentions(transcript, player.name)
-            youtube_context = youtube_service.summarize_for_gemini(mentions)
-            break
+            if mentions:
+                # Build context for Gemini
+                video_context = youtube_service.summarize_for_gemini(
+                    mentions, max_length=500
+                )
+                youtube_context_parts.append(
+                    f"[{video['channel_name']}]: {video_context}"
+                )
 
-    # If no YouTube context, use placeholder
-    if not youtube_context:
-        youtube_context = f"No recent expert analysis found for {player.name}. Analysis based on statistical data only."
+                # Create ExpertTake for UI with quote
+                quote_text = mentions[0]["text"]
+                if len(quote_text) > 200:
+                    quote_text = quote_text[:200] + "..."
+
+                expert_takes.append(
+                    ExpertTake(
+                        source=video["channel_name"],
+                        reasoning=quote_text,
+                        mentioned=True,
+                    )
+                )
+            else:
+                # Video exists but player not mentioned in transcript
+                expert_takes.append(
+                    ExpertTake(
+                        source=video["channel_name"],
+                        mentioned=False,
+                    )
+                )
+        else:
+            # No transcript available
+            expert_takes.append(
+                ExpertTake(
+                    source=video["channel_name"],
+                    mentioned=False,
+                )
+            )
+
+    # Combine YouTube context for Gemini
+    if youtube_context_parts:
+        youtube_context = "\n\n---\n\n".join(youtube_context_parts)
+    else:
+        youtube_context = (
+            f"No recent expert analysis found for {player.name}. "
+            "Analysis based on statistical data only."
+        )
 
     # Use Gemini to synthesize everything
     gemini_service = get_gemini_service()
@@ -558,7 +614,7 @@ async def get_player_pulse(sleeper_id: str):
         player=enhanced_player,
         gemini_analysis=gemini_analysis,
         youtube_context=youtube_context,
-        expert_takes=[],  # Will populate in future iterations
+        expert_takes=expert_takes,
         reddit_sentiment=None,  # Will add Reddit in Phase 4.2
     )
 
@@ -597,21 +653,24 @@ async def compare_players(player_a_id: str, player_b_id: str):
 
         # Get settings for season/week
         settings = get_settings()
+        current_season, current_week = await client.get_current_season_week(
+            settings.nfl_season, settings.nfl_week
+        )
 
         # Get enhanced data for both - need season and week
         proj_a_val = await client.get_player_projection(
-            player_a_id, settings.nfl_season, settings.nfl_week
+            player_a_id, current_season, current_week
         )
         proj_b_val = await client.get_player_projection(
-            player_b_id, settings.nfl_season, settings.nfl_week
+            player_b_id, current_season, current_week
         )
 
         # Get recent performance
         perf_a_data = await client.get_recent_performance(
-            player_a_id, settings.nfl_season, settings.nfl_week, lookback=3
+            player_a_id, current_season, current_week, lookback=3
         )
         perf_b_data = await client.get_recent_performance(
-            player_b_id, settings.nfl_season, settings.nfl_week, lookback=3
+            player_b_id, current_season, current_week, lookback=3
         )
 
         # Convert to RecentPerformance objects if data exists

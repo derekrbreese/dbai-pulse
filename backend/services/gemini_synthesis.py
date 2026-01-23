@@ -23,6 +23,38 @@ class GeminiSynthesis:
     MODEL_NAME = "gemini-3-flash-preview"  # Gemini 3 Flash Preview
 
     @staticmethod
+    def _sanitize_json_text(text: str) -> str:
+        """
+        Normalize common JSON issues from model output.
+        - Replace raw newlines inside strings with \n
+        - Strip non-printable control characters
+        """
+        cleaned = []
+        in_string = False
+        escape = False
+
+        for ch in text:
+            if in_string:
+                if escape:
+                    cleaned.append(ch)
+                    escape = False
+                    continue
+                if ch == "\\":
+                    cleaned.append(ch)
+                    escape = True
+                    continue
+                if ch in ("\n", "\r"):
+                    cleaned.append("\\n")
+                    continue
+            if ch == '"' and not escape:
+                in_string = not in_string
+            if ord(ch) < 32 and ch not in ("\n", "\r", "\t"):
+                continue
+            cleaned.append(ch)
+
+        return "".join(cleaned)
+
+    @staticmethod
     def _extract_json(text: str) -> Dict:
         """
         Robustly extract JSON from Gemini response text.
@@ -31,30 +63,55 @@ class GeminiSynthesis:
         # First, try to find JSON in markdown code blocks
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
         if json_match:
+            candidate = json_match.group(1).strip()
             try:
-                return json.loads(json_match.group(1).strip())
+                return json.loads(candidate)
             except json.JSONDecodeError:
-                pass
+                sanitized = GeminiSynthesis._sanitize_json_text(candidate)
+                try:
+                    return json.loads(sanitized)
+                except json.JSONDecodeError:
+                    fixed = GeminiSynthesis._fix_truncated_json(sanitized)
+                    if fixed:
+                        try:
+                            return json.loads(fixed)
+                        except json.JSONDecodeError:
+                            pass
 
         # Try to find JSON object by looking for { ... }
         json_match = re.search(r"\{[\s\S]*\}", text)
         if json_match:
+            candidate = json_match.group(0)
             try:
-                return json.loads(json_match.group(0))
+                return json.loads(candidate)
             except json.JSONDecodeError:
+                sanitized = GeminiSynthesis._sanitize_json_text(candidate)
+                try:
+                    return json.loads(sanitized)
+                except json.JSONDecodeError:
+                    # Try to fix truncated JSON
+                    fixed = GeminiSynthesis._fix_truncated_json(sanitized)
+                    if fixed:
+                        try:
+                            return json.loads(fixed)
+                        except json.JSONDecodeError:
+                            pass
                 # Try to fix truncated JSON
-                json_text = json_match.group(0)
-                fixed = GeminiSynthesis._fix_truncated_json(json_text)
-                if fixed:
-                    try:
-                        return json.loads(fixed)
-                    except json.JSONDecodeError:
-                        pass
 
         # If all else fails, try parsing the whole thing
         try:
             return json.loads(text)
         except json.JSONDecodeError:
+            sanitized = GeminiSynthesis._sanitize_json_text(text)
+            try:
+                return json.loads(sanitized)
+            except json.JSONDecodeError:
+                fixed = GeminiSynthesis._fix_truncated_json(sanitized)
+                if fixed:
+                    try:
+                        return json.loads(fixed)
+                    except json.JSONDecodeError:
+                        pass
             logger.error(f"Could not extract JSON from response: {text[:200]}...")
             raise
 

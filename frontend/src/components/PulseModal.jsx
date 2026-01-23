@@ -110,6 +110,32 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
                     </div>
                 )}
 
+                {/* Expert Video Sources */}
+                {data.expert_takes && data.expert_takes.length > 0 && (
+                    <div className="pulse-section">
+                        <h4 className="section-title">🎬 Expert Sources</h4>
+                        <div className="expert-takes-grid">
+                            {data.expert_takes.filter(take => take.mentioned).map((take, index) => (
+                                <div key={index} className="expert-take-card mentioned">
+                                    <div className="expert-take-source">{take.source}</div>
+                                    <div className="expert-take-status">✓ Player mentioned</div>
+                                    {take.reasoning && (
+                                        <p className="expert-take-quote">"{take.reasoning}"</p>
+                                    )}
+                                </div>
+                            ))}
+                            {data.expert_takes.filter(take => !take.mentioned).length > 0 && (
+                                <div className="expert-take-card not-mentioned">
+                                    <div className="expert-take-source">Other Sources Checked</div>
+                                    <div className="expert-take-status dim">
+                                        {data.expert_takes.filter(take => !take.mentioned).map(t => t.source).join(', ')}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Data Sources / Citations */}
                 <div className="pulse-citations">
                     <h4 className="section-title">📚 Data Sources</h4>
