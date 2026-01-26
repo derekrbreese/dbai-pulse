@@ -16,10 +16,16 @@ class Settings(BaseSettings):
     reddit_client_secret: str = ""
     reddit_username: str = ""
 
+    # Yahoo Fantasy API (OAuth 2.0)
+    yahoo_client_id: str = ""
+    yahoo_client_secret: str = ""
+    yahoo_redirect_uri: str = "http://localhost:8000/api/auth/yahoo/callback"
+
     # Cache TTLs (in seconds)
     transcript_cache_ttl: int = 6 * 60 * 60  # 6 hours
     extraction_cache_ttl: int = 2 * 60 * 60  # 2 hours
     sleeper_cache_ttl: int = 5 * 60  # 5 minutes
+    adp_cache_ttl: int = 6 * 60 * 60  # 6 hours
 
     # Sleeper API
     sleeper_base_url: str = "https://api.sleeper.app/v1"

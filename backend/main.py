@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routers import players
+from routers import players, auth, yahoo
 
 load_dotenv()
 
@@ -28,6 +28,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(players.router, prefix="/api/players", tags=["players"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(yahoo.router, prefix="/api/yahoo", tags=["yahoo"])
 
 
 @app.get("/")

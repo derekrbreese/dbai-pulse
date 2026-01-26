@@ -5,7 +5,7 @@ Responsible for calculating performance flags and adjusted projections
 based on Sleeper data and recent performance trends.
 """
 
-from typing import List
+from typing import Any, Dict, List, Optional
 import logging
 from models.schemas import RecentPerformance
 
@@ -105,3 +105,56 @@ class EnhancementEngine:
 
 def get_enhancement_engine() -> EnhancementEngine:
     return EnhancementEngine()
+
+
+def calculate_draft_value(
+    adp: float,
+    position: str,
+    projection: float,
+    position_adp_rank: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Calculate draft value metrics from ADP data.
+    
+    Returns dict with:
+    - adp_round: Which round player goes in (12-team)
+    - position_rank: Rank within position (e.g., RB12)
+    - value_tier: "elite", "solid", "risky", "deep"
+    - draft_flags: List of draft-related flags
+    """
+    if adp <= 0:
+        return {
+            "adp_round": None,
+            "position_rank": None,
+            "value_tier": None,
+            "draft_flags": [],
+        }
+    
+    adp_round = int((adp - 1) // 12) + 1
+    
+    draft_flags = []
+    
+    if adp <= 12:
+        value_tier = "elite"
+    elif adp <= 36:
+        value_tier = "solid"
+    elif adp <= 84:
+        value_tier = "mid"
+    elif adp <= 120:
+        value_tier = "late"
+    else:
+        value_tier = "deep"
+    
+    if projection > 0 and adp > 0:
+        points_per_adp = projection / adp
+        if points_per_adp > 1.5:
+            draft_flags.append("DRAFT_VALUE")
+        elif points_per_adp < 0.8:
+            draft_flags.append("DRAFT_REACH")
+    
+    return {
+        "adp_round": adp_round,
+        "position_rank": position_adp_rank,
+        "value_tier": value_tier,
+        "draft_flags": draft_flags,
+    }

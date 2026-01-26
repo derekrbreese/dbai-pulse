@@ -7,9 +7,10 @@ from fastapi import APIRouter, HTTPException, Query
 
 from config import get_settings
 from services.sleeper import get_sleeper_client
-from services.enhancement import get_enhancement_engine
+from services.enhancement import get_enhancement_engine, calculate_draft_value
 from services.youtube import get_youtube_service
 from services.gemini_synthesis import get_gemini_service
+from services.adp import get_adp_service
 from models.schemas import (
     PlayerSearchResult,
     EnhancedPlayer,
@@ -20,6 +21,9 @@ from models.schemas import (
     GeminiAnalysis,
     ComparisonResult,
     ExpertTake,
+    PlayerADP,
+    PlayerADPResponse,
+    DraftValue,
 )
 
 router = APIRouter()
@@ -355,6 +359,37 @@ async def get_player(sleeper_id: str):
     else:
         context = "No recent performance data"
 
+    adp_service = get_adp_service()
+    adp_data = await adp_service.get_player_adp(
+        player_name=player.name,
+        year=settings.nfl_season,
+        teams=12,
+        scoring="ppr",
+    )
+    
+    draft_value_model = None
+    if adp_data and adp_data.get("adp"):
+        adp_val = float(adp_data.get("adp", 0))
+        draft_calc = calculate_draft_value(
+            adp=adp_val,
+            position=player.position,
+            projection=projection_value,
+        )
+        std_dev = float(adp_data.get("stdev", 0)) if adp_data.get("stdev") else None
+        high_pick = int(adp_data.get("high", 0)) if adp_data.get("high") else None
+        low_pick = int(adp_data.get("low", 0)) if adp_data.get("low") else None
+        draft_range = f"{high_pick}-{low_pick}" if high_pick and low_pick else None
+        
+        draft_value_model = DraftValue(
+            adp=adp_val,
+            adp_round=draft_calc.get("adp_round"),
+            position_rank=draft_calc.get("position_rank"),
+            value_tier=draft_calc.get("value_tier"),
+            draft_flags=draft_calc.get("draft_flags", []),
+            std_dev=std_dev,
+            draft_range=draft_range,
+        )
+
     return EnhancedPlayer(
         player=player,
         projection=projection,
@@ -362,6 +397,7 @@ async def get_player(sleeper_id: str):
         performance_flags=flags,
         context_message=context,
         on_bye=on_bye,
+        draft_value=draft_value_model,
     )
 
 
@@ -765,3 +801,49 @@ async def compare_players(player_a_id: str, player_b_id: str):
     except Exception as e:
         logger.error(f"Error in compare_players: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{sleeper_id}/adp", response_model=PlayerADPResponse)
+async def get_player_adp(
+    sleeper_id: str,
+    scoring: str = Query("ppr", description="Scoring format: ppr, standard, half-ppr"),
+    teams: int = Query(12, ge=8, le=16, description="League size"),
+):
+    """Get ADP (Average Draft Position) data for a player."""
+    client = get_sleeper_client()
+    adp_service = get_adp_service()
+    settings = get_settings()
+
+    player_data = await client.get_player(sleeper_id)
+    if not player_data:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    player_name = player_data["name"]
+
+    adp_data = await adp_service.get_player_adp(
+        player_name=player_name,
+        year=settings.nfl_season,
+        teams=teams,
+        scoring=scoring,
+    )
+
+    adp_model = None
+    if adp_data:
+        adp_model = PlayerADP(
+            name=adp_data.get("name", player_name),
+            position=adp_data.get("position", player_data.get("position", "")),
+            adp=float(adp_data.get("adp", 0)),
+            adp_round=float(adp_data.get("adp_round", 0)) if adp_data.get("adp_round") else None,
+            std_dev=float(adp_data.get("stdev", 0)) if adp_data.get("stdev") else None,
+            high=int(adp_data.get("high", 0)) if adp_data.get("high") else None,
+            low=int(adp_data.get("low", 0)) if adp_data.get("low") else None,
+            times_drafted=int(adp_data.get("times_drafted", 0)) if adp_data.get("times_drafted") else None,
+        )
+
+    return PlayerADPResponse(
+        player_name=player_name,
+        adp_data=adp_model,
+        scoring=scoring,
+        teams=teams,
+        year=settings.nfl_season,
+    )

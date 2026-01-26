@@ -2,7 +2,7 @@ import './EnhancedCard.css'
 import PulseButton from './PulseButton'
 
 function EnhancedCard({ data }) {
-    const { player, projection, recent_performance, performance_flags, context_message, on_bye } = data
+    const { player, projection, recent_performance, performance_flags, context_message, on_bye, draft_value } = data
 
     // Get flag color
     const getFlagColor = (flag) => {
@@ -11,7 +11,20 @@ function EnhancedCard({ data }) {
         if (flag.includes('CEILING')) return '#f59e0b'
         if (flag.includes('CONSISTENT')) return '#3b82f6'
         if (flag.includes('BYE')) return '#6b7280'
+        if (flag.includes('DRAFT_VALUE')) return '#10b981'
+        if (flag.includes('DRAFT_REACH')) return '#f97316'
         return '#8b5cf6'
+    }
+
+    const getTierColor = (tier) => {
+        const colors = {
+            elite: '#fbbf24',
+            solid: '#22c55e',
+            mid: '#3b82f6',
+            late: '#8b5cf6',
+            deep: '#6b7280',
+        }
+        return colors[tier] || '#6b7280'
     }
 
     // Get position color
@@ -113,6 +126,55 @@ function EnhancedCard({ data }) {
                             </span>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {/* Draft Value */}
+            {draft_value && draft_value.adp && (
+                <div className="card-section draft-section">
+                    <h3>Draft Value</h3>
+                    <div className="draft-stats">
+                        <div className="stat-item">
+                            <span className="stat-value">{draft_value.adp.toFixed(1)}</span>
+                            <span className="stat-label">ADP</span>
+                        </div>
+                        {draft_value.adp_round && (
+                            <div className="stat-item">
+                                <span className="stat-value">Rd {draft_value.adp_round}</span>
+                                <span className="stat-label">Round</span>
+                            </div>
+                        )}
+                        {draft_value.value_tier && (
+                            <div className="stat-item">
+                                <span 
+                                    className="stat-value tier-badge"
+                                    style={{ backgroundColor: getTierColor(draft_value.value_tier) }}
+                                >
+                                    {draft_value.value_tier.toUpperCase()}
+                                </span>
+                                <span className="stat-label">Tier</span>
+                            </div>
+                        )}
+                        {draft_value.draft_range && (
+                            <div className="stat-item">
+                                <span className="stat-value">{draft_value.draft_range}</span>
+                                <span className="stat-label">Range</span>
+                            </div>
+                        )}
+                    </div>
+                    {draft_value.draft_flags && draft_value.draft_flags.length > 0 && (
+                        <div className="draft-flags">
+                            {draft_value.draft_flags.map((flag, idx) => (
+                                <span
+                                    key={`draft-${idx}`}
+                                    className="flag-chip small"
+                                    style={{ backgroundColor: getFlagColor(flag) }}
+                                >
+                                    {flag.replace(/_/g, ' ')}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 

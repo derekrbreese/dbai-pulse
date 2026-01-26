@@ -42,6 +42,7 @@ class EnhancedPlayer(BaseModel):
     performance_flags: List[str] = []
     context_message: str = ""
     on_bye: bool = False
+    draft_value: Optional["DraftValue"] = None
 
 
 class ExpertTake(BaseModel):
@@ -110,3 +111,38 @@ class PlayerSearchResult(BaseModel):
     name: str
     position: str
     team: Optional[str] = None
+
+
+class PlayerADP(BaseModel):
+    """ADP data for a player."""
+
+    name: str
+    position: str
+    adp: float
+    adp_round: Optional[float] = None
+    std_dev: Optional[float] = None
+    high: Optional[int] = None
+    low: Optional[int] = None
+    times_drafted: Optional[int] = None
+
+
+class PlayerADPResponse(BaseModel):
+    """Response for player ADP lookup."""
+
+    player_name: str
+    adp_data: Optional[PlayerADP] = None
+    scoring: str
+    teams: int
+    year: int
+
+
+class DraftValue(BaseModel):
+    """Draft value metrics for a player."""
+
+    adp: Optional[float] = None
+    adp_round: Optional[int] = None
+    position_rank: Optional[int] = None
+    value_tier: Optional[str] = None
+    draft_flags: List[str] = []
+    std_dev: Optional[float] = None
+    draft_range: Optional[str] = None

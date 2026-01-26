@@ -4,6 +4,8 @@ import EnhancedCard from './components/EnhancedCard'
 import PerformanceChart from './components/PerformanceChart'
 import ComparisonView from './components/ComparisonView'
 import FlagsBrowser from './components/FlagsBrowser'
+import YahooConnect from './components/YahooConnect'
+import RosterView from './components/RosterView'
 import './App.css'
 
 function App() {
@@ -13,6 +15,7 @@ function App() {
   const [error, setError] = useState(null)
   const [showComparison, setShowComparison] = useState(false)
   const [showFlagsBrowser, setShowFlagsBrowser] = useState(false)
+  const [showRoster, setShowRoster] = useState(false)
 
   const handlePlayerSelect = useCallback(async (player) => {
     setSelectedPlayer(player)
@@ -43,8 +46,11 @@ function App() {
         <p className="tagline">Fantasy Football Intelligence Dashboard</p>
 
         <div className="header-buttons">
+          <YahooConnect onConnect={() => setShowRoster(true)} />
+
           {/* Trends & Insights Button */}
           <button
+            type="button"
             className="trends-nav-button"
             onClick={() => setShowFlagsBrowser(true)}
           >
@@ -53,6 +59,7 @@ function App() {
 
           {/* Compare Button */}
           <button
+            type="button"
             className="compare-nav-button"
             onClick={() => setShowComparison(true)}
           >
@@ -62,6 +69,22 @@ function App() {
       </header>
 
       <main className="app-main">
+        {showRoster && (
+          <section className="roster-section">
+            <div className="section-header">
+              <h2>My Yahoo Roster</h2>
+              <button 
+                type="button" 
+                className="close-button"
+                onClick={() => setShowRoster(false)}
+              >
+                × Close
+              </button>
+            </div>
+            <RosterView />
+          </section>
+        )}
+
         <section className="search-section">
           <PlayerSearch onPlayerSelect={handlePlayerSelect} />
         </section>
