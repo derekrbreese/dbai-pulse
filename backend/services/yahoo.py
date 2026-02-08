@@ -53,11 +53,19 @@ class YahooFantasyService:
 
     @staticmethod
     def _extract_name(name_value: Any) -> str:
-        """Return display name from Yahoo API value variants."""
-        if isinstance(name_value, dict):
-            return str(name_value.get("full") or name_value.get("first") or "Unknown")
+        """Return display name from Yahoo API value variants (handles dict, yfpy objects, str, float)."""
         if isinstance(name_value, str):
             return name_value
+        if isinstance(name_value, dict):
+            return str(name_value.get("full") or name_value.get("first") or "Unknown")
+        # yfpy model objects (e.g. Name) — try attribute access
+        full = getattr(name_value, "full", None)
+        if full:
+            return str(full)
+        first = getattr(name_value, "first", None)
+        last = getattr(name_value, "last", None)
+        if first:
+            return f"{first} {last}".strip() if last else str(first)
         return "Unknown"
 
     @staticmethod

@@ -139,6 +139,12 @@
   color: var(--text-muted);
 }
 
+.insights-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .cache-pill {
   padding: 3px 8px;
   border-radius: 999px;
@@ -158,6 +164,11 @@
   border-color: rgba(34, 197, 94, 0.5);
 }
 
+.cache-pill.updating {
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
 .roster-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -172,18 +183,18 @@
 
 .roster-player-card {
   background: var(--bg-card);
-  padding: 14px;
+  padding: 16px;
   transition: background-color 0.2s;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .roster-player-card:hover {
   background: var(--bg-hover);
 }
 
-.player-header {
+.roster-player-header {
   display: flex;
   justify-content: space-between;
   margin-bottom: 4px;
@@ -194,20 +205,32 @@
   text-transform: uppercase;
 }
 
-.player-pos {
+.roster-player-pos {
   color: var(--text-secondary);
 }
 
-.player-name {
+.roster-player-team {
+  color: var(--text-muted);
+}
+
+.roster-player-name {
   font-family: var(--font-sans);
-  font-size: 1rem;
+  font-size: 1.04rem;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
   letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
-.match-pill {
+.roster-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.roster-match-pill {
   display: inline-flex;
   align-self: flex-start;
   border-radius: 999px;
@@ -219,57 +242,77 @@
   border: 1px solid transparent;
 }
 
-.match-pill.matched {
+.roster-match-pill.matched {
   color: #22c55e;
   background: rgba(34, 197, 94, 0.1);
   border-color: rgba(34, 197, 94, 0.3);
 }
 
-.match-pill.unmatched {
+.roster-match-pill.unmatched {
   color: #f97316;
   background: rgba(249, 115, 22, 0.1);
   border-color: rgba(249, 115, 22, 0.3);
 }
 
-.feedback-text {
+.roster-feedback-label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.roster-feedback-text {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.83rem;
-  line-height: 1.4;
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
-.feedback-score {
+.roster-feedback-score {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text-muted);
+  font-size: 0.66rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-.projection-row {
+.roster-analytics {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.01);
+  padding: 8px;
+  display: grid;
+  gap: 7px;
+}
+
+.roster-projection-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-family: var(--font-mono);
 }
 
-.projection-label {
+.roster-projection-label {
   color: var(--text-muted);
   font-size: 0.68rem;
   text-transform: uppercase;
 }
 
-.projection-value {
+.roster-projection-value {
   color: var(--text-primary);
   font-size: 0.82rem;
   font-weight: 700;
 }
 
-.flags-inline {
+.roster-flags-inline {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-.flag-chip-mini {
+.roster-flag-chip {
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
@@ -280,15 +323,22 @@
   color: var(--text-secondary);
 }
 
-.match-reason {
+.roster-match-reason {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
-.status-tag,
-.injury-tag {
+.roster-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.roster-status-tag,
+.roster-injury-tag {
   font-family: var(--font-mono);
   font-size: 0.65rem;
   padding: 2px 6px;
@@ -298,20 +348,21 @@
   width: fit-content;
 }
 
-.status-tag {
+.roster-status-tag {
   background-color: var(--bg-hover);
   color: var(--text-secondary);
   border: 1px solid var(--border-medium);
 }
 
-.injury-tag {
+.roster-injury-tag {
   background-color: rgba(239, 68, 68, 0.1);
   color: var(--danger);
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .pulse-wrapper {
-  margin-top: 2px;
+  margin-top: auto;
+  padding-top: 6px;
 }
 
 .roster-loading,
@@ -328,7 +379,104 @@
   color: var(--danger);
 }
 
+.roster-empty-state {
+  padding: 28px 20px 32px;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.roster-retry-button {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.roster-retry-button:hover {
+  background: var(--bg-hover);
+}
+
+.roster-inline-error {
+  margin: 0 20px 16px;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.12);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #fca5a5;
+  font-size: 0.78rem;
+}
+
+.roster-inline-error button {
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #fecaca;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
 @media (max-width: 900px) {
+  .roster-header {
+    padding: 0 14px 14px;
+    gap: 12px;
+  }
+
+  .league-selector {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .league-selector select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .team-info {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .feedback-controls {
+    margin: 0 14px 14px;
+  }
+
+  .insights-summary {
+    margin: 0 14px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .insights-status {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .roster-grid {
+    margin: 0 14px 14px;
+    grid-template-columns: 1fr;
+  }
+
+  .roster-inline-error {
+    margin: 0 14px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .control-actions {
     margin-left: 0;
     width: 100%;

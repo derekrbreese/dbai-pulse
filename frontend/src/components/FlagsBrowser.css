@@ -264,14 +264,14 @@
   letter-spacing: 0.02em;
 }
 
-.position-qb { background: linear-gradient(135deg, #dc2626, #ef4444); }
-.position-rb { background: linear-gradient(135deg, #16a34a, #22c55e); }
-.position-wr { background: linear-gradient(135deg, #2563eb, #3b82f6); }
-.position-te { background: linear-gradient(135deg, #d97706, #f59e0b); }
-.position-k { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
-.position-def { background: linear-gradient(135deg, #475569, #64748b); }
+.flags-position-qb { background: linear-gradient(135deg, #dc2626, #ef4444); }
+.flags-position-rb { background: linear-gradient(135deg, #16a34a, #22c55e); }
+.flags-position-wr { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+.flags-position-te { background: linear-gradient(135deg, #d97706, #f59e0b); }
+.flags-position-k { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
+.flags-position-def { background: linear-gradient(135deg, #475569, #64748b); }
 
-.player-team {
+.flags-player-team {
   color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 600;
@@ -279,7 +279,7 @@
   letter-spacing: 0.05em;
 }
 
-.player-name {
+.flags-player-name {
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -301,7 +301,7 @@
   gap: 2px;
 }
 
-.stat-label {
+.flags-stat-label {
   font-size: 0.65rem;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -309,7 +309,7 @@
   font-weight: 600;
 }
 
-.stat-value {
+.flags-stat-value {
   font-size: 0.95rem;
   font-weight: 800;
   color: var(--text-primary);

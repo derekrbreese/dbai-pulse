@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { apiFetch } from '../api/client'
 import './FlagsBrowser.css'
@@ -22,11 +22,7 @@ function FlagsBrowser({ onClose, onPlayerSelect }) {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
 
-    useEffect(() => {
-        fetchPlayers()
-    }, [selectedFlag, selectedPosition])
-
-    const fetchPlayers = async () => {
+    const fetchPlayers = useCallback(async () => {
         setLoading(true)
         setError(null)
 
@@ -46,10 +42,14 @@ function FlagsBrowser({ onClose, onPlayerSelect }) {
         } finally {
             setLoading(false)
         }
-    }
+    }, [selectedFlag, selectedPosition])
+
+    useEffect(() => {
+        fetchPlayers()
+    }, [fetchPlayers])
 
     const getPositionClass = (position) => {
-        return `position-${position?.toLowerCase()}`
+        return `flags-position-${position?.toLowerCase()}`
     }
 
     const handleCardClick = (playerData) => {
@@ -128,19 +128,19 @@ function FlagsBrowser({ onClose, onPlayerSelect }) {
                                         <span className={`player-position ${getPositionClass(p.player.position)}`}>
                                             {p.player.position}
                                         </span>
-                                        <span className="player-team">{p.player.team || 'FA'}</span>
+                                        <span className="flags-player-team">{p.player.team || 'FA'}</span>
                                     </div>
-                                    <div className="player-name">{p.player.name}</div>
+                                    <div className="flags-player-name">{p.player.name}</div>
                                     <div className="player-stats">
                                         <div className="stat">
-                                            <span className="stat-label">L3W Avg</span>
-                                            <span className="stat-value">
+                                            <span className="flags-stat-label">L3W Avg</span>
+                                            <span className="flags-stat-value">
                                                 {p.recent_performance?.avg_points?.toFixed(1) || '0'} pts
                                             </span>
                                         </div>
                                         <div className="stat">
-                                            <span className="stat-label">Trend</span>
-                                            <span className={`stat-value trend-${p.recent_performance?.trend}`}>
+                                            <span className="flags-stat-label">Trend</span>
+                                            <span className={`flags-stat-value trend-${p.recent_performance?.trend}`}>
                                                 {p.recent_performance?.trend || 'stable'}
                                             </span>
                                         </div>

@@ -101,7 +101,7 @@
   border: 1px solid rgba(255,255,255,0.1);
 }
 
-.player-name {
+.search-player-name {
   flex: 1;
   font-family: var(--font-sans);
   font-size: 0.95rem;
@@ -109,7 +109,7 @@
   color: var(--text-primary);
 }
 
-.player-team {
+.search-player-team {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   font-weight: 500;

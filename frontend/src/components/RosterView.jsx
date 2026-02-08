@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import PulseButton from './PulseButton'
 import { apiFetch } from '../api/client'
 import './RosterView.css'
@@ -19,8 +19,14 @@ function RosterView() {
   const [loadingInsights, setLoadingInsights] = useState(false)
   const [savingPreferences, setSavingPreferences] = useState(false)
   const [error, setError] = useState(null)
+  const activeRequestRef = useRef(0)
 
   const selectedTeam = teams.find(team => team.team_key === selectedTeamKey) || null
+  const nextRequestToken = () => {
+    activeRequestRef.current += 1
+    return activeRequestRef.current
+  }
+  const isActiveRequest = (token) => token === activeRequestRef.current
 
   const fetchPreferences = useCallback(async (teamKey) => {
     const response = await apiFetch(`/api/yahoo/teams/${encodeURIComponent(teamKey)}/preferences`)
@@ -30,7 +36,8 @@ function RosterView() {
     return response.json()
   }, [])
 
-  const fetchInsights = useCallback(async (teamKey, teamPreferences, refresh = false) => {
+  const fetchInsights = useCallback(async (teamKey, teamPreferences, refresh = false, requestToken = null) => {
+    const token = requestToken ?? nextRequestToken()
     const params = new URLSearchParams({
       scoring: teamPreferences.scoring,
       risk: teamPreferences.risk,
@@ -54,16 +61,31 @@ function RosterView() {
       }
 
       const data = await response.json()
+      if (!isActiveRequest(token)) {
+        return null
+      }
       setInsights(data)
+      return data
+    } catch (err) {
+      if (isActiveRequest(token)) {
+        throw err
+      }
+      return null
     } finally {
-      setLoadingInsights(false)
+      if (isActiveRequest(token)) {
+        setLoadingInsights(false)
+      }
     }
   }, [])
 
   const loadTeamData = useCallback(async (teamKey, refresh = false) => {
+    const requestToken = nextRequestToken()
     const teamPreferences = await fetchPreferences(teamKey)
+    if (!isActiveRequest(requestToken)) {
+      return
+    }
     setPreferences(teamPreferences)
-    await fetchInsights(teamKey, teamPreferences, refresh)
+    await fetchInsights(teamKey, teamPreferences, refresh, requestToken)
   }, [fetchPreferences, fetchInsights])
 
   const fetchTeams = useCallback(async () => {
@@ -83,6 +105,9 @@ function RosterView() {
       const fetchedTeams = data.teams || []
 
       if (!fetchedTeams.length) {
+        setTeams([])
+        setSelectedTeamKey('')
+        setInsights(null)
         throw new Error('No Yahoo teams found')
       }
 
@@ -105,6 +130,7 @@ function RosterView() {
   const handleTeamChange = async (e) => {
     const teamKey = e.target.value
     setSelectedTeamKey(teamKey)
+    setError(null)
 
     try {
       await loadTeamData(teamKey)
@@ -127,6 +153,7 @@ function RosterView() {
     setError(null)
 
     try {
+      const requestToken = nextRequestToken()
       const response = await apiFetch(
         `/api/yahoo/teams/${encodeURIComponent(selectedTeamKey)}/preferences`,
         {
@@ -144,8 +171,11 @@ function RosterView() {
       }
 
       const saved = await response.json()
+      if (!isActiveRequest(requestToken)) {
+        return
+      }
       setPreferences(saved)
-      await fetchInsights(selectedTeamKey, saved, true)
+      await fetchInsights(selectedTeamKey, saved, true, requestToken)
     } catch (err) {
       console.error(err)
       setError(err.message)
@@ -156,7 +186,9 @@ function RosterView() {
 
   const handleRefresh = async () => {
     if (!selectedTeamKey) return
+    const requestToken = nextRequestToken()
     setError(null)
+    setLoadingInsights(true)
 
     try {
       const response = await apiFetch(
@@ -171,11 +203,20 @@ function RosterView() {
       }
 
       const data = await response.json()
+      if (!isActiveRequest(requestToken)) {
+        return
+      }
       setInsights(data)
-      setPreferences(data.preferences || preferences)
+      setPreferences(prev => data.preferences || prev)
     } catch (err) {
       console.error(err)
-      setError(err.message)
+      if (isActiveRequest(requestToken)) {
+        setError(err.message)
+      }
+    } finally {
+      if (isActiveRequest(requestToken)) {
+        setLoadingInsights(false)
+      }
     }
   }
 
@@ -183,8 +224,19 @@ function RosterView() {
     return <div className="roster-loading">Loading Yahoo team import...</div>
   }
 
-  if (error) {
-    return <div className="roster-error">{error}</div>
+  if (!teams.length) {
+    return (
+      <div className="roster-empty-state">
+        <p className="roster-error">{error || 'No Yahoo teams found for this account.'}</p>
+        <button
+          type="button"
+          className="roster-retry-button"
+          onClick={fetchTeams}
+        >
+          Retry Import
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -214,6 +266,18 @@ function RosterView() {
           </div>
         )}
       </header>
+
+      {error && (
+        <div className="roster-inline-error">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <section className="feedback-controls">
         <div className="control-group">
@@ -279,9 +343,14 @@ function RosterView() {
       {insights && (
         <div className="insights-summary">
           <span>{insights.summary}</span>
-          <span className={`cache-pill ${insights.cached ? 'cached' : 'fresh'}`}>
-            {insights.cached ? 'Cached' : 'Fresh'}
-          </span>
+          <div className="insights-status">
+            {loadingInsights && (
+              <span className="cache-pill updating">Updating...</span>
+            )}
+            <span className={`cache-pill ${insights.cached ? 'cached' : 'fresh'}`}>
+              {insights.cached ? 'Cached' : 'Fresh'}
+            </span>
+          </div>
         </div>
       )}
 
@@ -295,46 +364,55 @@ function RosterView() {
 
           return (
             <div key={player.yahoo_player_key || player.name} className="roster-player-card">
-              <div className="player-header">
-                <span className="player-pos">{player.position || 'N/A'}</span>
-                <span className="player-team">{player.team || 'FA'}</span>
+              <div className="roster-player-header">
+                <span className="roster-player-pos">{player.position || 'N/A'}</span>
+                <span className="roster-player-team">{player.team || 'FA'}</span>
               </div>
 
-              <h3 className="player-name">{player.name}</h3>
+              <h3 className="roster-player-name">{player.name}</h3>
 
-              <div className={`match-pill ${matched ? 'matched' : 'unmatched'}`}>
-                {matched ? 'Matched to Sleeper' : 'Unmatched'}
+              <div className="roster-badge-row">
+                <div className={`roster-match-pill ${matched ? 'matched' : 'unmatched'}`}>
+                  {matched ? 'Matched to Sleeper' : 'Unmatched'}
+                </div>
+
+                {player.feedback_score !== null && player.feedback_score !== undefined && (
+                  <div className="roster-feedback-score">Score {player.feedback_score.toFixed(1)}</div>
+                )}
               </div>
 
-              <p className="feedback-text">{player.custom_feedback}</p>
-
-              {player.feedback_score !== null && player.feedback_score !== undefined && (
-                <div className="feedback-score">Feedback Score: {player.feedback_score.toFixed(1)}</div>
-              )}
+              <p className="roster-feedback-label">Feedback</p>
+              <p className="roster-feedback-text">{player.custom_feedback}</p>
 
               {matched && (
-                <div className="projection-row">
-                  <span className="projection-label">Projection</span>
-                  <span className="projection-value">{projectionValue?.toFixed(1)} pts</span>
-                </div>
-              )}
+                <div className="roster-analytics">
+                  <div className="roster-projection-row">
+                    <span className="roster-projection-label">Projection</span>
+                    <span className="roster-projection-value">{projectionValue?.toFixed(1)} pts</span>
+                  </div>
 
-              {matched && player.enhanced_player.performance_flags?.length > 0 && (
-                <div className="flags-inline">
-                  {player.enhanced_player.performance_flags.slice(0, 3).map(flag => (
-                    <span key={`${player.yahoo_player_key}-${flag}`} className="flag-chip-mini">
-                      {flag.replace(/_/g, ' ')}
-                    </span>
-                  ))}
+                  {player.enhanced_player.performance_flags?.length > 0 && (
+                    <div className="roster-flags-inline">
+                      {player.enhanced_player.performance_flags.slice(0, 3).map(flag => (
+                        <span key={`${player.yahoo_player_key}-${flag}`} className="roster-flag-chip">
+                          {flag.replace(/_/g, ' ')}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {!matched && (
-                <p className="match-reason">Reason: {player.match_reason}</p>
+                <p className="roster-match-reason">Reason: {player.match_reason}</p>
               )}
 
-              {player.status && <span className="status-tag">{player.status}</span>}
-              {player.injury_status && <span className="injury-tag">{player.injury_status}</span>}
+              {(player.status || player.injury_status) && (
+                <div className="roster-chip-row">
+                  {player.status && <span className="roster-status-tag">{player.status}</span>}
+                  {player.injury_status && <span className="roster-injury-tag">{player.injury_status}</span>}
+                </div>
+              )}
 
               {matched && (
                 <div className="pulse-wrapper">

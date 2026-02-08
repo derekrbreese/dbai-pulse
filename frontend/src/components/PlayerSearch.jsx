@@ -109,8 +109,8 @@ function PlayerSearch({ onPlayerSelect }) {
                             >
                                 {player.position}
                             </span>
-                            <span className="player-name">{player.name}</span>
-                            <span className="player-team">{player.team || 'FA'}</span>
+                            <span className="search-player-name">{player.name}</span>
+                            <span className="search-player-team">{player.team || 'FA'}</span>
                         </li>
                     ))}
                 </ul>

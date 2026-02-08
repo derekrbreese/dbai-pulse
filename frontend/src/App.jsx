@@ -168,7 +168,7 @@ function App() {
       </header>
 
       <main className="app-main">
-        {showAuthGate && !authUser && (
+        {showAuthGate && !authUser ? (
           <section className="auth-gate-section">
             <AuthPage
               onAuthenticated={handleAuthenticated}
@@ -181,9 +181,7 @@ function App() {
               <p className="auth-session-error">{authError}</p>
             )}
           </section>
-        )}
-
-        {showYahooSetup ? (
+        ) : showYahooSetup ? (
           authUser ? (
           <section className="yahoo-setup-section">
             <YahooSetupPage onBack={() => setShowYahooSetup(false)} />
