@@ -1,0 +1,206 @@
+.yahoo-setup-page {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.yahoo-setup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 10px;
+}
+
+.yahoo-setup-header h2 {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
+.yahoo-setup-back {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  padding: 7px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.yahoo-setup-back:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.yahoo-setup-intro {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.yahoo-setup-notice {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  padding: 10px 12px;
+}
+
+.yahoo-setup-notice h3 {
+  margin: 0 0 8px 0;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+
+.yahoo-setup-notice ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.yahoo-setup-block {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  padding: 10px 12px;
+}
+
+.yahoo-setup-block h3 {
+  margin: 0 0 8px 0;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+
+.yahoo-setup-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.yahoo-setup-steps code {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text-primary);
+}
+
+.yahoo-setup-errors {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.yahoo-setup-errors code {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text-primary);
+}
+
+.yahoo-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
+  gap: 8px 10px;
+}
+
+.yahoo-setup-grid label {
+  font-family: var(--font-mono);
+  font-size: 0.69rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.yahoo-setup-grid input {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  outline: none;
+}
+
+.yahoo-setup-grid input:focus {
+  border-color: #6001d2;
+}
+
+.yahoo-setup-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.yahoo-save-button,
+.yahoo-connect-now {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.yahoo-save-button:hover,
+.yahoo-connect-now:hover {
+  background: var(--bg-hover);
+}
+
+.yahoo-save-button:disabled,
+.yahoo-connect-now:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.yahoo-client-hint,
+.yahoo-setup-missing,
+.yahoo-setup-error,
+.yahoo-setup-success {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.yahoo-client-hint,
+.yahoo-setup-missing {
+  color: var(--text-muted);
+}
+
+.yahoo-setup-error {
+  color: var(--danger);
+}
+
+.yahoo-setup-success {
+  color: var(--success);
+}
+
+@media (max-width: 780px) {
+  .yahoo-setup-grid {
+    grid-template-columns: 1fr;
+  }
+}

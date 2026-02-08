@@ -103,6 +103,37 @@ body {
   margin-top: 24px;
 }
 
+.session-row {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.session-user {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.session-logout {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.session-logout:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
 .trends-nav-button,
 .compare-nav-button {
   padding: 8px 16px;
@@ -139,6 +170,14 @@ body {
   margin-bottom: 40px;
 }
 
+.yahoo-setup-section {
+  margin-bottom: 24px;
+}
+
+.auth-gate-section {
+  margin-bottom: 24px;
+}
+
 .player-section {
   display: grid;
   grid-template-columns: 380px 1fr;
@@ -165,6 +204,14 @@ body {
   padding: 60px 0;
   color: var(--text-muted);
   font-family: var(--font-mono);
+}
+
+.auth-session-error {
+  text-align: center;
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  margin-top: 12px;
 }
 
 .spinner {

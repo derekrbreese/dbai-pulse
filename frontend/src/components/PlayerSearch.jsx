@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { apiFetch } from '../api/client'
 import './PlayerSearch.css'
 
 function PlayerSearch({ onPlayerSelect }) {
@@ -29,8 +30,8 @@ function PlayerSearch({ onPlayerSelect }) {
 
         setLoading(true)
         try {
-            const response = await fetch(
-                `http://localhost:8000/api/players/search?q=${encodeURIComponent(searchQuery)}&limit=8`
+            const response = await apiFetch(
+                `/api/players/search?q=${encodeURIComponent(searchQuery)}&limit=8`
             )
             if (response.ok) {
                 const data = await response.json()

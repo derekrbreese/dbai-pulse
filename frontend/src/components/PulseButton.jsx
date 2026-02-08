@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { apiFetch } from '../api/client'
 import './PulseButton.css'
 import PulseModal from './PulseModal'
 
@@ -16,7 +17,7 @@ function PulseButton({ sleeperId, playerName }) {
         setError(null)
 
         try {
-            const response = await fetch(`http://localhost:8000/api/players/${sleeperId}/pulse`)
+            const response = await apiFetch(`/api/players/${sleeperId}/pulse`)
             if (!response.ok) {
                 throw new Error('Failed to fetch Pulse analysis')
             }

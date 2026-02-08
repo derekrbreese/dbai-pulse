@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { apiFetch } from '../api/client'
 import PlayerSlot from './PlayerSlot'
 import ComparisonResult from './ComparisonResult'
 import './ComparisonView.css'
@@ -18,8 +19,8 @@ function ComparisonView({ onClose }) {
         setError(null)
 
         try {
-            const response = await fetch(
-                `http://localhost:8000/api/players/compare/${playerA.sleeper_id}/${playerB.sleeper_id}`
+            const response = await apiFetch(
+                `/api/players/compare/${playerA.sleeper_id}/${playerB.sleeper_id}`
             )
             if (!response.ok) {
                 throw new Error('Failed to compare players')

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts'
+import { apiFetch } from '../api/client'
 import './PerformanceChart.css'
 
 function PerformanceChart({ playerId, playerName: _playerName }) {
@@ -15,7 +16,7 @@ function PerformanceChart({ playerId, playerName: _playerName }) {
             setError(null)
 
             try {
-                const response = await fetch(`http://localhost:8000/api/players/${playerId}/trends?lookback=5`)
+                const response = await apiFetch(`/api/players/${playerId}/trends?lookback=5`)
                 if (!response.ok) {
                     throw new Error('Failed to fetch trends')
                 }

@@ -199,7 +199,7 @@ class SleeperClient:
         return data
 
     async def get_player_projection(
-        self, sleeper_id: str, season: int, week: int
+        self, sleeper_id: str, season: int, week: int, scoring: str = "ppr"
     ) -> float:
         """Get projection for a specific player."""
         projections = await self.get_projections(season, week)
@@ -211,15 +211,28 @@ class SleeperClient:
             "stats", player_proj
         )  # Fallback to player_proj if stats not nested
 
-        # Try PPR first, then half-PPR, then standard
-        pts = (
-            stats.get("pts_ppr")
-            or stats.get("pts_half_ppr")
-            or stats.get("pts_std")
-            or stats.get("pts")
-            or 0.0
-        )
+        pts = self._extract_points_by_scoring(stats, scoring)
         return float(pts)
+
+    @staticmethod
+    def _extract_points_by_scoring(stat_data: Dict[str, Any], scoring: str = "ppr") -> float:
+        """Extract points value from stats/projection payload based on scoring mode."""
+        scoring_mode = (scoring or "ppr").lower()
+        if scoring_mode == "half_ppr":
+            keys = ("pts_half_ppr", "pts_ppr", "pts_std", "pts")
+        elif scoring_mode == "std":
+            keys = ("pts_std", "pts_half_ppr", "pts_ppr", "pts")
+        else:
+            keys = ("pts_ppr", "pts_half_ppr", "pts_std", "pts")
+
+        for key in keys:
+            value = stat_data.get(key)
+            if value is not None:
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    continue
+        return 0.0
 
     async def get_stats(self, season: int, week: int) -> Dict[str, Any]:
         """
@@ -252,7 +265,12 @@ class SleeperClient:
         return stats.get(sleeper_id)
 
     async def get_recent_performance(
-        self, sleeper_id: str, season: int, current_week: int, lookback: int = 3
+        self,
+        sleeper_id: str,
+        season: int,
+        current_week: int,
+        lookback: int = 3,
+        scoring: str = "ppr",
     ) -> Dict[str, Any]:
         """
         Get recent performance stats for a player.
@@ -269,13 +287,7 @@ class SleeperClient:
             if stats:
                 # Stats can be nested under "stats" key or directly in the object
                 stat_data = stats.get("stats", stats)
-                points = (
-                    stat_data.get("pts_ppr")
-                    or stat_data.get("pts_half_ppr")
-                    or stat_data.get("pts_std")
-                    or stat_data.get("pts")
-                    or 0
-                )
+                points = self._extract_points_by_scoring(stat_data, scoring)
                 weekly_points.append({"week": week, "points": float(points)})
 
         if not weekly_points:
@@ -313,7 +325,12 @@ class SleeperClient:
         }
 
     async def get_recent_projection_avg(
-        self, sleeper_id: str, season: int, current_week: int, lookback: int = 3
+        self,
+        sleeper_id: str,
+        season: int,
+        current_week: int,
+        lookback: int = 3,
+        scoring: str = "ppr",
     ) -> float:
         """
         Get average projection over recent weeks.
@@ -326,7 +343,7 @@ class SleeperClient:
             if week < 1:
                 break
 
-            proj = await self.get_player_projection(sleeper_id, season, week)
+            proj = await self.get_player_projection(sleeper_id, season, week, scoring=scoring)
             if proj:
                 projections.append(float(proj))
 

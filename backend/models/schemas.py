@@ -2,8 +2,8 @@
 Pydantic models for dbAI Pulse API.
 """
 
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Literal, Optional
+from pydantic import BaseModel, Field
 
 
 class PlayerBase(BaseModel):
@@ -146,3 +146,90 @@ class DraftValue(BaseModel):
     draft_flags: List[str] = []
     std_dev: Optional[float] = None
     draft_range: Optional[str] = None
+
+
+class YahooTeamSummary(BaseModel):
+    """Basic Yahoo team summary metadata."""
+
+    team_key: str
+    team_name: str
+    league_key: str
+    league_name: Optional[str] = None
+    season: Optional[int] = None
+
+
+class TeamFeedbackPreferences(BaseModel):
+    """Saved feedback customization preferences for one team."""
+
+    scoring: Literal["ppr", "half_ppr", "std"] = "ppr"
+    risk: Literal["conservative", "balanced", "aggressive"] = "balanced"
+    focus: Literal["floor", "upside", "ceiling"] = "upside"
+    updated_at: Optional[int] = None
+
+
+class TeamFeedbackPreferencesUpdate(BaseModel):
+    """Request model for team preference updates."""
+
+    scoring: Literal["ppr", "half_ppr", "std"] = "ppr"
+    risk: Literal["conservative", "balanced", "aggressive"] = "balanced"
+    focus: Literal["floor", "upside", "ceiling"] = "upside"
+
+
+class RosterInsightPlayer(BaseModel):
+    """Roster player row including Yahoo-to-Sleeper matching and feedback."""
+
+    yahoo_player_key: str
+    name: str
+    position: Optional[str] = None
+    team: Optional[str] = None
+    status: Optional[str] = None
+    injury_status: Optional[str] = None
+    matched_sleeper_id: Optional[str] = None
+    match_confidence: Optional[float] = None
+    match_reason: str
+    enhanced_player: Optional[EnhancedPlayer] = None
+    custom_feedback: str
+    feedback_score: Optional[float] = None
+
+
+class RosterInsightsResponse(BaseModel):
+    """Full roster insights payload for a Yahoo team import."""
+
+    team: YahooTeamSummary
+    preferences: TeamFeedbackPreferences
+    players: List[RosterInsightPlayer] = Field(default_factory=list)
+    matched_count: int
+    unmatched_count: int
+    summary: str
+    cached: bool = False
+    imported_at: int
+
+
+class AuthUser(BaseModel):
+    """Authenticated application user."""
+
+    id: str
+    email: str
+    created_at: int
+    last_login_at: Optional[int] = None
+
+
+class AuthRegisterRequest(BaseModel):
+    """Registration payload for local account auth."""
+
+    email: str = Field(..., min_length=3, max_length=254)
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class AuthLoginRequest(BaseModel):
+    """Login payload for local account auth."""
+
+    email: str = Field(..., min_length=3, max_length=254)
+    password: str = Field(..., min_length=1, max_length=128)
+
+
+class AuthSessionResponse(BaseModel):
+    """Session status response."""
+
+    authenticated: bool
+    user: Optional[AuthUser] = None

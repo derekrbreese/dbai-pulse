@@ -1,4 +1,5 @@
-.yahoo-connect-button {
+.yahoo-connect-button,
+.yahoo-setup-nav-button {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -15,13 +16,15 @@
   text-transform: uppercase;
 }
 
-.yahoo-connect-button:hover {
+.yahoo-connect-button:hover,
+.yahoo-setup-nav-button:hover {
   background-color: var(--bg-hover);
-  border-color: #6001d2; /* Yahoo purple accent on hover */
+  border-color: #6001d2;
   color: #fff;
 }
 
-.yahoo-connect-button:disabled {
+.yahoo-connect-button:disabled,
+.yahoo-setup-nav-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -29,7 +32,7 @@
 .yahoo-icon {
   font-weight: 900;
   font-family: serif;
-  color: #6001d2; /* Keep brand color for icon */
+  color: #6001d2;
 }
 
 .yahoo-connect.connected {

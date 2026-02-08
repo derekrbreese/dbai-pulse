@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { apiFetch } from '../api/client'
 import './PlayerSlot.css'
 
 function PlayerSlot({ label, player, onSelect }) {
@@ -14,7 +15,7 @@ function PlayerSlot({ label, player, onSelect }) {
 
         setSearching(true)
         try {
-            const response = await fetch(`http://localhost:8000/api/players/search?q=${encodeURIComponent(q)}&limit=5`)
+            const response = await apiFetch(`/api/players/search?q=${encodeURIComponent(q)}&limit=5`)
             if (response.ok) {
                 const data = await response.json()
                 setResults(data)

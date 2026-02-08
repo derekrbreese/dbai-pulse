@@ -1,67 +1,76 @@
 import { useState, useEffect, useCallback } from 'react'
+import { apiFetch } from '../api/client'
 import './YahooConnect.css'
 
-function YahooConnect({ onConnect }) {
+function YahooConnect({ isAuthenticated, authLoading, onConnect, onOpenSetup, onRequireAuth, onUnauthorized }) {
   const [status, setStatus] = useState('disconnected') // disconnected, connecting, connected
   const [loading, setLoading] = useState(false)
+  const [teamCount, setTeamCount] = useState(0)
+  const [oauthConfigured, setOauthConfigured] = useState(true)
 
   const checkStatus = useCallback(async () => {
+    if (!isAuthenticated || authLoading) {
+      setStatus('disconnected')
+      setTeamCount(0)
+      setOauthConfigured(true)
+      return
+    }
+
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/api/auth/yahoo/status')
+      const response = await apiFetch('/api/auth/yahoo/status')
+      if (response.status === 401) {
+        setStatus('disconnected')
+        setTeamCount(0)
+        if (onUnauthorized) {
+          onUnauthorized()
+        }
+        return
+      }
       if (response.ok) {
         const data = await response.json()
+        setOauthConfigured(data.configured !== false)
+
         if (data.connected) {
           setStatus('connected')
+          setTeamCount(data.teamCount || 0)
           if (onConnect) onConnect()
         } else {
           setStatus('disconnected')
+          setTeamCount(0)
         }
       }
     } catch (err) {
       console.error('Failed to check Yahoo status:', err)
       setStatus('disconnected')
+      setTeamCount(0)
+      setOauthConfigured(true)
     } finally {
       setLoading(false)
     }
-  }, [onConnect])
+  }, [authLoading, isAuthenticated, onConnect, onUnauthorized])
 
-  // Check connection status on mount and when URL params change
   useEffect(() => {
+    if (!isAuthenticated || authLoading) return
+
     checkStatus()
-    
-    // Check for success param in URL (from OAuth redirect)
+
     const params = new URLSearchParams(window.location.search)
     if (params.get('yahoo_connected') === 'true') {
-      // Clean URL
       window.history.replaceState({}, document.title, window.location.pathname)
       checkStatus()
     }
-  }, [checkStatus])
+  }, [authLoading, checkStatus, isAuthenticated])
 
-  const handleConnect = async () => {
-    try {
-      setLoading(true)
-      // Get current URL for redirect
-      const currentUrl = window.location.href
-      
-      // Get auth URL from backend
-      await fetch(`http://localhost:8000/api/auth/yahoo/login?redirect_url=${encodeURIComponent(currentUrl)}`)
-      
-      // The backend returns a redirect, but fetch follows it automatically.
-      // We actually want the URL to redirect the browser to.
-      // Since our backend endpoint redirects, fetch might just follow it and fail CORS or return the Yahoo page HTML.
-      // Better approach: backend returns the URL in JSON, or we assume the redirect URL.
-      // Let's check how I implemented the backend... 
-      // Ah, backend returns RedirectResponse. Fetch follows redirects by default.
-      // If we use window.location.href, the backend will redirect the browser.
-      
-      window.location.href = `http://localhost:8000/api/auth/yahoo/login?redirect_url=${encodeURIComponent(currentUrl)}`
-      
-    } catch (err) {
-      console.error('Failed to initiate connection:', err)
-      setLoading(false)
+  const handleOpenSetup = () => {
+    if (authLoading) return
+    if (!isAuthenticated) {
+      if (onRequireAuth) onRequireAuth()
+      return
     }
+
+    if (!onOpenSetup) return
+    onOpenSetup()
   }
 
   const handleDisconnect = async () => {
@@ -69,13 +78,19 @@ function YahooConnect({ onConnect }) {
 
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/api/auth/yahoo/disconnect', {
+      const response = await apiFetch('/api/auth/yahoo/disconnect', {
         method: 'POST'
       })
+      if (response.status === 401) {
+        if (onUnauthorized) {
+          onUnauthorized()
+        }
+        return
+      }
       
       if (response.ok) {
         setStatus('disconnected')
-        // Refresh page to clear roster data
+        setTeamCount(0)
         window.location.reload()
       }
     } catch (err) {
@@ -89,7 +104,10 @@ function YahooConnect({ onConnect }) {
     return (
       <div className="yahoo-connect connected">
         <span className="status-indicator">●</span>
-        <span className="status-text">Yahoo Connected</span>
+        <span className="status-text">
+          Yahoo Connected
+          {teamCount > 0 ? ` (${teamCount} teams)` : ''}
+        </span>
         <button 
           type="button"
           className="disconnect-button" 
@@ -106,16 +124,16 @@ function YahooConnect({ onConnect }) {
   return (
     <button 
       type="button"
-      className="yahoo-connect-button" 
-      onClick={handleConnect}
-      disabled={loading}
+      className={oauthConfigured ? 'yahoo-connect-button' : 'yahoo-setup-nav-button'}
+      onClick={handleOpenSetup}
+      disabled={authLoading}
     >
-      {loading ? (
-        <span className="spinner-small"></span>
-      ) : (
-        <span className="yahoo-icon">Y!</span>
-      )}
-      Connect Yahoo Fantasy
+      <span className="yahoo-icon">Y!</span>
+      {authLoading
+        ? 'Checking Session...'
+        : isAuthenticated
+          ? (oauthConfigured ? 'Connect Yahoo Fantasy' : 'Yahoo Setup')
+          : 'Sign In For Yahoo'}
     </button>
   )
 }

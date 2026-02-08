@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { apiFetch } from '../api/client'
 import './FlagsBrowser.css'
 
 const FLAGS = [
@@ -31,8 +32,8 @@ function FlagsBrowser({ onClose, onPlayerSelect }) {
 
         try {
             const posParam = selectedPosition !== 'ALL' ? `&position=${selectedPosition}` : ''
-            const response = await fetch(
-                `http://localhost:8000/api/players/by-flag/${selectedFlag}?limit=30${posParam}`
+            const response = await apiFetch(
+                `/api/players/by-flag/${selectedFlag}?limit=30${posParam}`
             )
             if (!response.ok) {
                 throw new Error('Failed to fetch players')
