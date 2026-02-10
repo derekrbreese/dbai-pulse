@@ -47,7 +47,7 @@
   justify-content: center;
   border-radius: var(--radius-sm);
   color: #fff;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .player-details {
@@ -143,7 +143,8 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  background: var(--border-subtle); /* Gaps become borders */
+  background: var(--border-subtle);
+  /* Gaps become borders */
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -164,8 +165,13 @@
   color: var(--text-primary);
 }
 
-.stat-value.trend-improving { color: var(--success); }
-.stat-value.trend-declining { color: var(--danger); }
+.stat-value.trend-improving {
+  color: var(--success);
+}
+
+.stat-value.trend-declining {
+  color: var(--danger);
+}
 
 .stat-label {
   font-family: var(--font-mono);
@@ -185,13 +191,15 @@
 .flag-chip {
   display: inline-flex;
   align-items: center;
-  padding: 4px 8px;
+  padding: 4px 10px 4px 8px;
   font-family: var(--font-mono);
   font-size: 0.7rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-medium);
+  border-left: 3px solid;
+  border-left-color: inherit;
   border-radius: var(--radius-sm);
   text-transform: uppercase;
 }
@@ -209,12 +217,41 @@
 }
 
 /* Position Colors (Muted for Terminal) */
-.position-badge.qb, .position-qb { background: #7f1d1d; border-color: #ef4444; }
-.position-badge.rb, .position-rb { background: #14532d; border-color: #22c55e; }
-.position-badge.wr, .position-wr { background: #1e3a8a; border-color: #3b82f6; }
-.position-badge.te, .position-te { background: #78350f; border-color: #f59e0b; }
-.position-badge.k, .position-k { background: #581c87; border-color: #a855f7; }
-.position-badge.def, .position-def { background: #334155; border-color: #94a3b8; }
+.position-badge.qb,
+.position-qb {
+  background: #7f1d1d;
+  border-color: #ef4444;
+}
+
+.position-badge.rb,
+.position-rb {
+  background: #14532d;
+  border-color: #22c55e;
+}
+
+.position-badge.wr,
+.position-wr {
+  background: #1e3a8a;
+  border-color: #3b82f6;
+}
+
+.position-badge.te,
+.position-te {
+  background: #78350f;
+  border-color: #f59e0b;
+}
+
+.position-badge.k,
+.position-k {
+  background: #581c87;
+  border-color: #a855f7;
+}
+
+.position-badge.def,
+.position-def {
+  background: #334155;
+  border-color: #94a3b8;
+}
 
 /* Draft Section */
 .draft-section .draft-stats {

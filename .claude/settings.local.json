@@ -5,7 +5,18 @@
       "Bash(python:*)",
       "Bash(npm run lint)",
       "Bash(npm run dev:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(railway up:*)",
+      "Bash(railway service status:*)",
+      "Bash(curl:*)",
+      "Bash(railway deployment:*)",
+      "mcp__plugin_playwright_playwright__browser_type",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "Bash(railway domain:*)",
+      "WebSearch",
+      "Bash(timeout 10 railway logs:*)",
+      "Bash(railway logs:*)"
     ]
   }
 }

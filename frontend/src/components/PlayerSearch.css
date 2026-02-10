@@ -5,6 +5,10 @@
   margin: 0 auto;
 }
 
+.player-search.hero {
+  max-width: 100%;
+}
+
 .search-input-wrapper {
   position: relative;
   display: flex;
@@ -30,20 +34,43 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--text-secondary);
+  border-color: var(--accent);
   background: var(--bg-hover);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 0 0 3px var(--accent-dim), var(--shadow-sm);
+}
+
+/* Hero variant */
+.search-input.hero {
+  padding: 20px 52px;
+  font-size: 1.1rem;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+}
+
+.search-input.hero:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-dim), 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.player-search.hero .search-icon {
+  left: 22px;
+  font-size: 1.15rem;
 }
 
 .search-input::placeholder {
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 0.9rem;
+}
+
+.search-input.hero::placeholder {
+  font-size: 0.95rem;
 }
 
 .search-spinner {
@@ -64,7 +91,7 @@
   background: var(--bg-card);
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   z-index: 100;
   max-height: 400px;
   overflow-y: auto;
@@ -81,9 +108,15 @@
   border: 1px solid transparent;
 }
 
-.search-result-item:hover {
+.search-result-item:hover,
+.search-result-item.highlighted {
   background: var(--bg-hover);
   border-color: var(--border-subtle);
+}
+
+.search-result-item.highlighted {
+  background: var(--accent-dim);
+  border-color: rgba(99, 102, 241, 0.2);
 }
 
 .position-badge {
@@ -98,7 +131,7 @@
   color: #fff;
   border-radius: var(--radius-sm);
   text-transform: uppercase;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .search-player-name {
@@ -123,5 +156,7 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }

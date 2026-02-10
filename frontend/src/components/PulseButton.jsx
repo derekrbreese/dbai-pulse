@@ -47,7 +47,10 @@ function PulseButton({ sleeperId, playerName }) {
                 ) : (
                     <>
                         <span className="pulse-icon">🔮</span>
-                        <span>What's the Pulse?</span>
+                        <div className="pulse-button-text">
+                            <span>What's the Pulse?</span>
+                            <span className="pulse-button-subtitle">AI start/sit analysis</span>
+                        </div>
                     </>
                 )}
             </button>

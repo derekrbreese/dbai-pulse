@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { apiFetch } from '../api/client'
 import PlayerSlot from './PlayerSlot'
 import ComparisonResult from './ComparisonResult'
 import './ComparisonView.css'
 
-function ComparisonView({ onClose }) {
+function ComparisonView() {
     const [playerA, setPlayerA] = useState(null)
     const [playerB, setPlayerB] = useState(null)
     const [result, setResult] = useState(null)
@@ -34,39 +33,38 @@ function ComparisonView({ onClose }) {
         }
     }
 
-    const modalContent = (
-        <div className="comparison-overlay" onClick={onClose}>
-            <div className="comparison-modal" onClick={(e) => e.stopPropagation()}>
-                {/* Header */}
-                <div className="comparison-header">
-                    <div className="comparison-title">
-                        <span className="comparison-icon">🔄</span>
-                        <div>
-                            <h2>Compare Players</h2>
-                            <p className="comparison-subtitle">Head-to-head Gemini analysis</p>
-                        </div>
+    return (
+        <div className="comparison-page">
+            {/* Header */}
+            <div className="comparison-page-header">
+                <div className="comparison-title">
+                    <span className="comparison-icon">🔄</span>
+                    <div>
+                        <h2>Compare Players</h2>
+                        <p className="comparison-subtitle">Head-to-head Gemini analysis</p>
                     </div>
-                    <button className="comparison-close" onClick={onClose}>✕</button>
                 </div>
+            </div>
 
-                {/* Player Slots */}
-                <div className="comparison-slots">
-                    <PlayerSlot
-                        label="Player A"
-                        player={playerA}
-                        onSelect={setPlayerA}
-                    />
-                    <div className="vs-divider">
-                        <span className="vs-text">VS</span>
-                    </div>
-                    <PlayerSlot
-                        label="Player B"
-                        player={playerB}
-                        onSelect={setPlayerB}
-                    />
+            {/* Player Slots */}
+            <div className="comparison-slots">
+                <PlayerSlot
+                    label="Player A"
+                    player={playerA}
+                    onSelect={setPlayerA}
+                />
+                <div className="vs-divider">
+                    <span className="vs-text">VS</span>
                 </div>
+                <PlayerSlot
+                    label="Player B"
+                    player={playerB}
+                    onSelect={setPlayerB}
+                />
+            </div>
 
-                {/* Compare Button */}
+            {/* Compare Button */}
+            <div className="comparison-action">
                 <button
                     className="compare-button"
                     onClick={runComparison}
@@ -84,16 +82,18 @@ function ComparisonView({ onClose }) {
                         </>
                     )}
                 </button>
-
-                {error && <div className="comparison-error">⚠️ {error}</div>}
-
-                {/* Results */}
-                {result && <ComparisonResult data={result} />}
             </div>
+
+            {error && <div className="comparison-error">⚠️ {error}</div>}
+
+            {/* Results */}
+            {result && (
+                <div className="comparison-results-wrapper">
+                    <ComparisonResult data={result} />
+                </div>
+            )}
         </div>
     )
-
-    return createPortal(modalContent, document.body)
 }
 
 export default ComparisonView

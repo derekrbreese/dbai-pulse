@@ -120,7 +120,7 @@ function EnhancedCard({ data }) {
                             <span
                                 key={idx}
                                 className="flag-chip"
-                                style={{ backgroundColor: getFlagColor(flag) }}
+                                style={{ borderLeftColor: getFlagColor(flag) }}
                             >
                                 {flag.replace(/_/g, ' ')}
                             </span>
@@ -146,7 +146,7 @@ function EnhancedCard({ data }) {
                         )}
                         {draft_value.value_tier && (
                             <div className="stat-item">
-                                <span 
+                                <span
                                     className="stat-value tier-badge"
                                     style={{ backgroundColor: getTierColor(draft_value.value_tier) }}
                                 >
@@ -168,7 +168,7 @@ function EnhancedCard({ data }) {
                                 <span
                                     key={`draft-${idx}`}
                                     className="flag-chip small"
-                                    style={{ backgroundColor: getFlagColor(flag) }}
+                                    style={{ borderLeftColor: getFlagColor(flag) }}
                                 >
                                     {flag.replace(/_/g, ' ')}
                                 </span>

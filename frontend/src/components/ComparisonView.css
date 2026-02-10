@@ -1,55 +1,16 @@
-.comparison-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(5, 5, 10, 0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  animation: fadeIn 0.2s ease;
+/* ===== Comparison View (Inline Page) ===== */
+.comparison-page {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
-.comparison-modal {
-  background: rgba(18, 18, 28, 0.98);
-  border-radius: var(--radius-xl);
-  max-width: 960px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  border: 1px solid var(--border-medium);
-  box-shadow: 
-    0 32px 80px rgba(0, 0, 0, 0.6),
-    0 0 60px rgba(99, 102, 241, 0.1);
-  animation: modalSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes modalSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(32px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.comparison-header {
+.comparison-page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 32px 32px 24px;
+  padding: 28px 28px 24px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -60,15 +21,15 @@
 }
 
 .comparison-icon {
-  font-size: 2.25rem;
+  font-size: 2rem;
   filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.4));
 }
 
 .comparison-title h2 {
   margin: 0;
-  font-size: 1.75rem;
-  font-weight: 900;
-  background: var(--accent-gradient);
+  font-size: 1.35rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -77,38 +38,17 @@
 
 .comparison-subtitle {
   margin: 4px 0 0;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 500;
 }
 
-.comparison-close {
-  background: var(--bg-glass);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-size: 1.25rem;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.comparison-close:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #f87171;
-  transform: scale(1.05);
-}
-
+/* ===== Slots ===== */
 .comparison-slots {
   display: flex;
   align-items: stretch;
   gap: 24px;
-  padding: 32px;
+  padding: 28px;
 }
 
 .vs-divider {
@@ -119,36 +59,41 @@
 }
 
 .vs-text {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 900;
   background: linear-gradient(135deg, #ec4899, #f43f5e);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 0 16px rgba(236, 72, 153, 0.5));
+  filter: drop-shadow(0 0 12px rgba(236, 72, 153, 0.4));
+}
+
+/* ===== Action ===== */
+.comparison-action {
+  padding: 0 28px 24px;
 }
 
 .compare-button {
-  margin: 0 32px 28px;
-  padding: 18px 28px;
-  background: var(--accent-gradient);
+  width: 100%;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   color: #fff;
-  font-size: 1.1rem;
-  font-weight: 800;
+  font-size: 1rem;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+  gap: 10px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
 }
 
 .compare-button:hover:not(:disabled) {
-  transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.35);
 }
 
 .compare-button:disabled {
@@ -157,48 +102,57 @@
 }
 
 .compare-spinner {
-  width: 22px;
-  height: 22px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
+/* ===== Error ===== */
 .comparison-error {
-  margin: 0 32px 24px;
-  padding: 14px 18px;
+  margin: 0 28px 20px;
+  padding: 12px 16px;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: var(--radius-md);
   color: #f87171;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   text-align: center;
 }
 
-@media (max-width: 768px) {
-  .comparison-overlay {
-    padding: 16px;
-  }
+/* ===== Results ===== */
+.comparison-results-wrapper {
+  border-top: 1px solid var(--border-subtle);
+}
 
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
   .comparison-slots {
     flex-direction: column;
-    padding: 24px;
+    padding: 20px;
   }
 
   .vs-divider {
-    padding: 16px 0;
+    padding: 12px 0;
   }
 
-  .comparison-header {
-    padding: 24px 20px 20px;
+  .comparison-page-header {
+    padding: 20px;
   }
 
-  .compare-button {
-    margin: 0 20px 24px;
+  .comparison-action {
+    padding: 0 20px 20px;
+  }
+
+  .comparison-error {
+    margin: 0 20px 16px;
   }
 }
