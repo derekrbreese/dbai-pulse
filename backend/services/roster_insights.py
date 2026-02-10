@@ -30,6 +30,21 @@ _suffix_pattern = re.compile(r"\b(jr|sr|ii|iii|iv|v)\b\.?", re.IGNORECASE)
 _non_alpha_pattern = re.compile(r"[^a-z0-9 ]")
 _multi_space_pattern = re.compile(r"\s+")
 
+_TEAM_ABBREVIATION_ALIASES: Dict[str, str] = {
+    "ARZ": "ARI",
+    "JAC": "JAX",
+    "LA": "LAR",
+    "LVR": "LV",
+    "NWE": "NE",
+    "NOR": "NO",
+    "OAK": "LV",
+    "SD": "LAC",
+    "SFO": "SF",
+    "STL": "LAR",
+    "TAM": "TB",
+    "WSH": "WAS",
+}
+
 _sleeper_player_index: Optional[Dict[str, Any]] = None
 
 
@@ -53,7 +68,10 @@ class RosterInsightsService:
     @staticmethod
     def normalize_team(team: Optional[str]) -> str:
         """Normalize NFL team abbreviations used by matching index."""
-        return (team or "").strip().upper()
+        raw = (team or "").strip().upper()
+        if not raw:
+            return ""
+        return _TEAM_ABBREVIATION_ALIASES.get(raw, raw)
 
     @staticmethod
     def normalize_position(position: Optional[str]) -> str:
@@ -79,6 +97,8 @@ class RosterInsightsService:
         name_team: Dict[Tuple[str, str], List[str]] = {}
         name_pos: Dict[Tuple[str, str], List[str]] = {}
         name_only: Dict[str, List[str]] = {}
+        yahoo_id: Dict[str, List[str]] = {}
+        def_by_team: Dict[str, List[str]] = {}
         meta: Dict[str, Dict[str, Any]] = {}
 
         valid_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
@@ -90,9 +110,24 @@ class RosterInsightsService:
 
             first_name = player.get("first_name") or ""
             last_name = player.get("last_name") or ""
-            full_name = f"{first_name} {last_name}".strip()
-            normalized = self.normalize_name(full_name)
-            if not normalized:
+            full_name = (
+                player.get("full_name")
+                or f"{first_name} {last_name}"
+                or player.get("search_full_name")
+                or ""
+            ).strip()
+
+            normalized_names: List[str] = []
+            for raw_name in {
+                full_name,
+                f"{first_name} {last_name}".strip(),
+                player.get("search_full_name") or "",
+            }:
+                normalized = self.normalize_name(raw_name)
+                if normalized and normalized not in normalized_names:
+                    normalized_names.append(normalized)
+
+            if not normalized_names:
                 continue
 
             team = self.normalize_team(player.get("team"))
@@ -104,15 +139,27 @@ class RosterInsightsService:
                 "search_rank": player.get("search_rank") or 999999,
             }
 
-            name_only.setdefault(normalized, []).append(sleeper_id)
-            if team:
-                name_team.setdefault((normalized, team), []).append(sleeper_id)
-            name_pos.setdefault((normalized, position), []).append(sleeper_id)
+            for normalized_name in normalized_names:
+                name_only.setdefault(normalized_name, []).append(sleeper_id)
+                if team:
+                    name_team.setdefault((normalized_name, team), []).append(sleeper_id)
+                name_pos.setdefault((normalized_name, position), []).append(sleeper_id)
+
+            sleeper_yahoo_id = player.get("yahoo_id")
+            if sleeper_yahoo_id is not None:
+                sleeper_yahoo_id = str(sleeper_yahoo_id).strip()
+                if sleeper_yahoo_id:
+                    yahoo_id.setdefault(sleeper_yahoo_id, []).append(sleeper_id)
+
+            if position == "DEF" and team:
+                def_by_team.setdefault(team, []).append(sleeper_id)
 
         _sleeper_player_index = {
             "name_team": name_team,
             "name_pos": name_pos,
             "name_only": name_only,
+            "yahoo_id": yahoo_id,
+            "def_by_team": def_by_team,
             "meta": meta,
             "names": list(name_only.keys()),
         }
@@ -153,17 +200,34 @@ class RosterInsightsService:
         """Match a Yahoo roster player to a Sleeper player ID."""
         index = await self._build_player_index()
 
+        team = self.normalize_team(yahoo_player.get("team"))
+        position = self.normalize_position(yahoo_player.get("position"))
+
+        yahoo_player_id = str(yahoo_player.get("player_id") or "").strip()
+        if yahoo_player_id:
+            yahoo_id_lookup = index.get("yahoo_id", {})
+            yahoo_id_candidates = yahoo_id_lookup.get(yahoo_player_id, [])
+            candidate = self._pick_candidate(yahoo_id_candidates, index.get("meta", {}), team, position)
+            if candidate:
+                if len(yahoo_id_candidates) == 1:
+                    return candidate, 1.0, "exact yahoo_id match"
+                return candidate, 0.99, "yahoo_id match resolved by team/position"
+
+        if position == "DEF" and team:
+            def_team_lookup = index.get("def_by_team", {})
+            def_team_candidates = def_team_lookup.get(team, [])
+            candidate = self._pick_candidate(def_team_candidates, index.get("meta", {}), team, "DEF")
+            if candidate:
+                return candidate, 0.99, "defense matched by team"
+
         name = self.normalize_name(yahoo_player.get("name", ""))
         if not name:
             return None, None, "missing player name"
 
-        team = self.normalize_team(yahoo_player.get("team"))
-        position = self.normalize_position(yahoo_player.get("position"))
-
-        name_team = index["name_team"]
-        name_pos = index["name_pos"]
-        name_only = index["name_only"]
-        meta = index["meta"]
+        name_team = index.get("name_team", {})
+        name_pos = index.get("name_pos", {})
+        name_only = index.get("name_only", {})
+        meta = index.get("meta", {})
 
         exact_team_candidates = name_team.get((name, team), []) if team else []
         candidate = self._pick_candidate(exact_team_candidates, meta, team, position)
@@ -182,7 +246,7 @@ class RosterInsightsService:
             reason = "strict name unique match" if len(strict_name_candidates) == 1 else "strict name best-match"
             return candidate, confidence, reason
 
-        fuzzy_matches = difflib.get_close_matches(name, index["names"], n=1, cutoff=0.92)
+        fuzzy_matches = difflib.get_close_matches(name, index.get("names", []), n=1, cutoff=0.92)
         if fuzzy_matches:
             fuzzy_name = fuzzy_matches[0]
             fuzzy_candidates = name_only.get(fuzzy_name, [])
