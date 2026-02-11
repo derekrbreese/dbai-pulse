@@ -23,6 +23,7 @@ from models.schemas import (
 )
 from services.enhancement import get_enhancement_engine
 from services.sleeper import get_sleeper_client
+from services.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ class RosterInsightsService:
         self.settings = get_settings()
         self.sleeper = get_sleeper_client()
         self.engine = get_enhancement_engine()
+        self.storage = get_storage()
 
     @staticmethod
     def normalize_name(name: str) -> str:
@@ -64,6 +66,11 @@ class RosterInsightsService:
         lowered = _non_alpha_pattern.sub(" ", lowered)
         lowered = _multi_space_pattern.sub(" ", lowered).strip()
         return lowered
+
+    @staticmethod
+    def normalize_name_compact(name: str) -> str:
+        """Normalize and collapse spaces for robust initial-based name matching."""
+        return RosterInsightsService.normalize_name(name).replace(" ", "")
 
     @staticmethod
     def normalize_team(team: Optional[str]) -> str:
@@ -87,6 +94,14 @@ class RosterInsightsService:
             return ""
         return raw
 
+    @staticmethod
+    def _safe_search_rank(value: Any) -> int:
+        """Convert search_rank into sortable int with fallback."""
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 999999
+
     async def _build_player_index(self) -> Dict[str, Any]:
         """Build and cache Sleeper player lookup indexes."""
         global _sleeper_player_index
@@ -97,6 +112,9 @@ class RosterInsightsService:
         name_team: Dict[Tuple[str, str], List[str]] = {}
         name_pos: Dict[Tuple[str, str], List[str]] = {}
         name_only: Dict[str, List[str]] = {}
+        name_team_compact: Dict[Tuple[str, str], List[str]] = {}
+        name_pos_compact: Dict[Tuple[str, str], List[str]] = {}
+        name_only_compact: Dict[str, List[str]] = {}
         yahoo_id: Dict[str, List[str]] = {}
         def_by_team: Dict[str, List[str]] = {}
         meta: Dict[str, Dict[str, Any]] = {}
@@ -136,32 +154,59 @@ class RosterInsightsService:
                 "name": full_name,
                 "team": team,
                 "position": position,
-                "search_rank": player.get("search_rank") or 999999,
+                "search_rank": self._safe_search_rank(player.get("search_rank")),
+                "has_team": bool(team),
+                "normalized_names": normalized_names,
+                "compact_names": [self.normalize_name_compact(item) for item in normalized_names],
             }
 
             for normalized_name in normalized_names:
-                name_only.setdefault(normalized_name, []).append(sleeper_id)
+                if sleeper_id not in name_only.setdefault(normalized_name, []):
+                    name_only[normalized_name].append(sleeper_id)
                 if team:
-                    name_team.setdefault((normalized_name, team), []).append(sleeper_id)
-                name_pos.setdefault((normalized_name, position), []).append(sleeper_id)
+                    team_key = (normalized_name, team)
+                    if sleeper_id not in name_team.setdefault(team_key, []):
+                        name_team[team_key].append(sleeper_id)
+
+                pos_key = (normalized_name, position)
+                if sleeper_id not in name_pos.setdefault(pos_key, []):
+                    name_pos[pos_key].append(sleeper_id)
+
+                compact_name = self.normalize_name_compact(normalized_name)
+                if compact_name:
+                    if sleeper_id not in name_only_compact.setdefault(compact_name, []):
+                        name_only_compact[compact_name].append(sleeper_id)
+                    if team:
+                        compact_team_key = (compact_name, team)
+                        if sleeper_id not in name_team_compact.setdefault(compact_team_key, []):
+                            name_team_compact[compact_team_key].append(sleeper_id)
+                    compact_pos_key = (compact_name, position)
+                    if sleeper_id not in name_pos_compact.setdefault(compact_pos_key, []):
+                        name_pos_compact[compact_pos_key].append(sleeper_id)
 
             sleeper_yahoo_id = player.get("yahoo_id")
             if sleeper_yahoo_id is not None:
                 sleeper_yahoo_id = str(sleeper_yahoo_id).strip()
                 if sleeper_yahoo_id:
-                    yahoo_id.setdefault(sleeper_yahoo_id, []).append(sleeper_id)
+                    if sleeper_id not in yahoo_id.setdefault(sleeper_yahoo_id, []):
+                        yahoo_id[sleeper_yahoo_id].append(sleeper_id)
 
             if position == "DEF" and team:
-                def_by_team.setdefault(team, []).append(sleeper_id)
+                if sleeper_id not in def_by_team.setdefault(team, []):
+                    def_by_team[team].append(sleeper_id)
 
         _sleeper_player_index = {
             "name_team": name_team,
             "name_pos": name_pos,
             "name_only": name_only,
+            "name_team_compact": name_team_compact,
+            "name_pos_compact": name_pos_compact,
+            "name_only_compact": name_only_compact,
             "yahoo_id": yahoo_id,
             "def_by_team": def_by_team,
             "meta": meta,
             "names": list(name_only.keys()),
+            "compact_names": list(name_only_compact.keys()),
         }
         return _sleeper_player_index
 
@@ -194,16 +239,114 @@ class RosterInsightsService:
             if pos_candidates:
                 candidates = pos_candidates
 
-        return sorted(candidates, key=lambda sid: meta.get(sid, {}).get("search_rank", 999999))[0]
+        return sorted(
+            candidates,
+            key=lambda sid: (
+                0 if meta.get(sid, {}).get("has_team") else 1,
+                meta.get(sid, {}).get("search_rank", 999999),
+            ),
+        )[0]
 
-    async def match_player(self, yahoo_player: Dict[str, Any]) -> Tuple[Optional[str], Optional[float], str]:
+    @staticmethod
+    def _extract_yahoo_player_identifiers(yahoo_player: Dict[str, Any]) -> Tuple[str, str]:
+        """Extract Yahoo player_key and player_id with fallback parsing from key."""
+        player_key = str(yahoo_player.get("player_key") or "").strip()
+        player_id = str(yahoo_player.get("player_id") or "").strip()
+
+        if not player_id and player_key and ".p." in player_key:
+            player_id = player_key.split(".p.")[-1].strip()
+
+        return player_key, player_id
+
+    def _saved_mapping_is_compatible(
+        self,
+        sleeper_id: str,
+        yahoo_player: Dict[str, Any],
+        index: Dict[str, Any],
+    ) -> bool:
+        """Validate that saved mapping is still compatible with current roster metadata."""
+        meta = index.get("meta", {})
+        sleeper_meta = meta.get(sleeper_id)
+        if not sleeper_meta:
+            return False
+
+        yahoo_team = self.normalize_team(yahoo_player.get("team"))
+        yahoo_position = self.normalize_position(yahoo_player.get("position"))
+        sleeper_position = sleeper_meta.get("position") or ""
+        sleeper_team = sleeper_meta.get("team") or ""
+
+        if yahoo_position and sleeper_position and yahoo_position != sleeper_position:
+            return False
+
+        # Defenses should be team-locked.
+        if yahoo_position == "DEF" and yahoo_team and sleeper_team and yahoo_team != sleeper_team:
+            return False
+
+        return True
+
+    def _resolve_saved_mapping(
+        self,
+        user_id: Optional[str],
+        team_key: Optional[str],
+        yahoo_player: Dict[str, Any],
+        index: Dict[str, Any],
+    ) -> Tuple[Optional[str], Optional[float], str]:
+        """Resolve a player using previously persisted user/team mapping when valid."""
+        if not user_id or not team_key:
+            return None, None, "saved mapping unavailable"
+
+        player_key, player_id = self._extract_yahoo_player_identifiers(yahoo_player)
+        saved = self.storage.get_saved_player_mapping(
+            user_id=user_id,
+            team_key=team_key,
+            yahoo_player_key=player_key,
+            yahoo_player_id=player_id,
+        )
+        if not saved:
+            return None, None, "no saved mapping"
+
+        sleeper_id = str(saved.get("sleeper_id") or "").strip()
+        if not sleeper_id:
+            return None, None, "saved mapping missing sleeper id"
+
+        if not self._saved_mapping_is_compatible(sleeper_id, yahoo_player, index):
+            return None, None, "saved mapping incompatible"
+
+        raw_confidence = saved.get("confidence")
+        confidence = 0.99
+        if raw_confidence is not None:
+            try:
+                confidence = float(raw_confidence)
+            except (TypeError, ValueError):
+                confidence = 0.99
+
+        confidence = max(min(confidence, 1.0), 0.95)
+        return sleeper_id, confidence, "saved mapping"
+
+    async def match_player(
+        self,
+        yahoo_player: Dict[str, Any],
+        index: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+        team_key: Optional[str] = None,
+    ) -> Tuple[Optional[str], Optional[float], str]:
         """Match a Yahoo roster player to a Sleeper player ID."""
-        index = await self._build_player_index()
+        if index is None:
+            index = await self._build_player_index()
+
+        saved_sleeper_id, saved_confidence, saved_reason = self._resolve_saved_mapping(
+            user_id=user_id,
+            team_key=team_key,
+            yahoo_player=yahoo_player,
+            index=index,
+        )
+        if saved_sleeper_id:
+            return saved_sleeper_id, saved_confidence, saved_reason
 
         team = self.normalize_team(yahoo_player.get("team"))
         position = self.normalize_position(yahoo_player.get("position"))
 
-        yahoo_player_id = str(yahoo_player.get("player_id") or "").strip()
+        _, yahoo_player_id = self._extract_yahoo_player_identifiers(yahoo_player)
         if yahoo_player_id:
             yahoo_id_lookup = index.get("yahoo_id", {})
             yahoo_id_candidates = yahoo_id_lookup.get(yahoo_player_id, [])
@@ -227,7 +370,11 @@ class RosterInsightsService:
         name_team = index.get("name_team", {})
         name_pos = index.get("name_pos", {})
         name_only = index.get("name_only", {})
+        name_team_compact = index.get("name_team_compact", {})
+        name_pos_compact = index.get("name_pos_compact", {})
+        name_only_compact = index.get("name_only_compact", {})
         meta = index.get("meta", {})
+        compact_name = self.normalize_name_compact(name)
 
         exact_team_candidates = name_team.get((name, team), []) if team else []
         candidate = self._pick_candidate(exact_team_candidates, meta, team, position)
@@ -246,6 +393,31 @@ class RosterInsightsService:
             reason = "strict name unique match" if len(strict_name_candidates) == 1 else "strict name best-match"
             return candidate, confidence, reason
 
+        exact_compact_team_candidates = (
+            name_team_compact.get((compact_name, team), []) if compact_name and team else []
+        )
+        candidate = self._pick_candidate(exact_compact_team_candidates, meta, team, position)
+        if candidate:
+            return candidate, 0.99, "compact name+team match"
+
+        exact_compact_pos_candidates = (
+            name_pos_compact.get((compact_name, position), []) if compact_name and position else []
+        )
+        candidate = self._pick_candidate(exact_compact_pos_candidates, meta, team, position)
+        if candidate:
+            return candidate, 0.96, "compact name+position match"
+
+        strict_compact_candidates = name_only_compact.get(compact_name, []) if compact_name else []
+        candidate = self._pick_candidate(strict_compact_candidates, meta, team, position)
+        if candidate:
+            confidence = 0.94 if len(strict_compact_candidates) == 1 else 0.91
+            reason = (
+                "compact name unique match"
+                if len(strict_compact_candidates) == 1
+                else "compact name best-match"
+            )
+            return candidate, confidence, reason
+
         fuzzy_matches = difflib.get_close_matches(name, index.get("names", []), n=1, cutoff=0.92)
         if fuzzy_matches:
             fuzzy_name = fuzzy_matches[0]
@@ -253,6 +425,61 @@ class RosterInsightsService:
             candidate = self._pick_candidate(fuzzy_candidates, meta, team, position)
             if candidate:
                 return candidate, 0.92, f"fuzzy name match ({fuzzy_name})"
+
+        fuzzy_compact = difflib.get_close_matches(
+            compact_name,
+            index.get("compact_names", []),
+            n=1,
+            cutoff=0.9,
+        )
+        if fuzzy_compact:
+            fuzzy_compact_name = fuzzy_compact[0]
+            fuzzy_compact_candidates = name_only_compact.get(fuzzy_compact_name, [])
+            candidate = self._pick_candidate(fuzzy_compact_candidates, meta, team, position)
+            if candidate:
+                return candidate, 0.9, f"fuzzy compact name match ({fuzzy_compact_name})"
+
+        if team and position:
+            team_pos_candidates = [
+                sid
+                for sid, player_meta in meta.items()
+                if player_meta.get("team") == team and player_meta.get("position") == position
+            ]
+            if team_pos_candidates:
+                scored_candidates: List[Tuple[float, str]] = []
+                for sid in team_pos_candidates:
+                    player_meta = meta.get(sid, {})
+                    normalized_names = player_meta.get("normalized_names", [])
+                    compact_names = player_meta.get("compact_names", [])
+
+                    best_similarity = 0.0
+                    for normalized_candidate_name in normalized_names:
+                        best_similarity = max(
+                            best_similarity,
+                            difflib.SequenceMatcher(None, name, normalized_candidate_name).ratio(),
+                        )
+
+                    for compact_candidate_name in compact_names:
+                        if compact_name and compact_candidate_name:
+                            best_similarity = max(
+                                best_similarity,
+                                difflib.SequenceMatcher(
+                                    None,
+                                    compact_name,
+                                    compact_candidate_name,
+                                ).ratio(),
+                            )
+
+                    scored_candidates.append((best_similarity, sid))
+
+                scored_candidates.sort(reverse=True)
+                best_similarity, best_sid = scored_candidates[0]
+                if best_similarity >= 0.86:
+                    return (
+                        best_sid,
+                        0.88,
+                        f"team+position similarity fallback ({best_similarity:.2f})",
+                    )
 
         return None, None, "no high-confidence sleeper match"
 
@@ -494,6 +721,7 @@ class RosterInsightsService:
     async def generate_team_insights(
         self,
         yahoo_service: Any,
+        user_id: str,
         team_summary: Dict[str, Any],
         preferences: TeamFeedbackPreferences,
     ) -> RosterInsightsResponse:
@@ -509,12 +737,31 @@ class RosterInsightsService:
         players: List[RosterInsightPlayer] = []
         matched_count = 0
         unmatched_count = 0
+        index = await self._build_player_index()
 
         for yahoo_player in roster:
-            sleeper_id, confidence, match_reason = await self.match_player(yahoo_player)
+            sleeper_id, confidence, match_reason = await self.match_player(
+                yahoo_player=yahoo_player,
+                index=index,
+                user_id=user_id,
+                team_key=team_key,
+            )
             enhanced_player = None
             if sleeper_id:
                 enhanced_player = await self.build_enhanced_player(sleeper_id, preferences.scoring)
+                if enhanced_player:
+                    yahoo_player_key, yahoo_player_id = self._extract_yahoo_player_identifiers(
+                        yahoo_player
+                    )
+                    self.storage.save_player_mapping(
+                        user_id=user_id,
+                        team_key=team_key,
+                        yahoo_player_key=yahoo_player_key,
+                        yahoo_player_id=yahoo_player_id,
+                        sleeper_id=sleeper_id,
+                        confidence=confidence,
+                        match_reason=match_reason,
+                    )
 
             score = self._calculate_feedback_score(
                 enhanced_player=enhanced_player,

@@ -146,6 +146,7 @@ async def _compute_team_insights(
 
     insights = await insights_service.generate_team_insights(
         yahoo_service=yahoo_service,
+        user_id=user_id,
         team_summary=team,
         preferences=preferences,
     )

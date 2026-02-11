@@ -93,6 +93,30 @@ class SQLiteStorage:
                 """
             )
 
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS yahoo_sleeper_player_map (
+                    user_id TEXT NOT NULL,
+                    team_key TEXT NOT NULL,
+                    yahoo_identity TEXT NOT NULL,
+                    yahoo_player_key TEXT,
+                    yahoo_player_id TEXT,
+                    sleeper_id TEXT NOT NULL,
+                    confidence REAL,
+                    match_reason TEXT,
+                    updated_at INTEGER NOT NULL,
+                    PRIMARY KEY (user_id, team_key, yahoo_identity)
+                )
+                """
+            )
+
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_yahoo_sleeper_player_map_player_id
+                ON yahoo_sleeper_player_map (user_id, team_key, yahoo_player_id)
+                """
+            )
+
     def _connect(self) -> sqlite3.Connection:
         """Open a sqlite connection with row dictionaries enabled."""
         connection = sqlite3.connect(str(self.db_path), timeout=30, check_same_thread=False)
@@ -333,6 +357,130 @@ class SQLiteStorage:
         with self._write_lock:
             with self._connect() as conn:
                 conn.execute(query, tuple(params))
+
+    @staticmethod
+    def _mapping_identities(
+        yahoo_player_key: Optional[str],
+        yahoo_player_id: Optional[str],
+    ) -> list[str]:
+        """Build lookup identities for Yahoo player mapping records."""
+        identities: list[str] = []
+        clean_player_key = str(yahoo_player_key or "").strip()
+        clean_player_id = str(yahoo_player_id or "").strip()
+
+        if clean_player_key:
+            identities.append(f"key:{clean_player_key}")
+        if clean_player_id:
+            identities.append(f"id:{clean_player_id}")
+
+        return identities
+
+    def get_saved_player_mapping(
+        self,
+        user_id: str,
+        team_key: str,
+        yahoo_player_key: Optional[str],
+        yahoo_player_id: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        """Load a previously saved Yahoo-to-Sleeper mapping for a player identity."""
+        identities = self._mapping_identities(yahoo_player_key, yahoo_player_id)
+        if not identities:
+            return None
+
+        placeholders = ",".join("?" for _ in identities)
+        query = f"""
+            SELECT
+                user_id,
+                team_key,
+                yahoo_identity,
+                yahoo_player_key,
+                yahoo_player_id,
+                sleeper_id,
+                confidence,
+                match_reason,
+                updated_at
+            FROM yahoo_sleeper_player_map
+            WHERE user_id = ? AND team_key = ? AND yahoo_identity IN ({placeholders})
+            ORDER BY updated_at DESC
+        """
+
+        params = [user_id, team_key, *identities]
+        with self._connect() as conn:
+            rows = conn.execute(query, tuple(params)).fetchall()
+
+        if not rows:
+            return None
+
+        by_identity: Dict[str, Dict[str, Any]] = {}
+        for row in rows:
+            row_dict = dict(row)
+            identity = row_dict.get("yahoo_identity")
+            if identity and identity not in by_identity:
+                by_identity[identity] = row_dict
+
+        for identity in identities:
+            if identity in by_identity:
+                return by_identity[identity]
+
+        return dict(rows[0])
+
+    def save_player_mapping(
+        self,
+        user_id: str,
+        team_key: str,
+        yahoo_player_key: Optional[str],
+        yahoo_player_id: Optional[str],
+        sleeper_id: str,
+        confidence: Optional[float],
+        match_reason: str,
+    ) -> int:
+        """Persist Yahoo-to-Sleeper mapping identities and return updated timestamp."""
+        identities = self._mapping_identities(yahoo_player_key, yahoo_player_id)
+        normalized_sleeper_id = str(sleeper_id or "").strip()
+        if not identities or not normalized_sleeper_id:
+            return int(time.time())
+
+        updated_at = int(time.time())
+
+        with self._write_lock:
+            with self._connect() as conn:
+                for identity in identities:
+                    conn.execute(
+                        """
+                        INSERT INTO yahoo_sleeper_player_map (
+                            user_id,
+                            team_key,
+                            yahoo_identity,
+                            yahoo_player_key,
+                            yahoo_player_id,
+                            sleeper_id,
+                            confidence,
+                            match_reason,
+                            updated_at
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(user_id, team_key, yahoo_identity) DO UPDATE SET
+                            yahoo_player_key = excluded.yahoo_player_key,
+                            yahoo_player_id = excluded.yahoo_player_id,
+                            sleeper_id = excluded.sleeper_id,
+                            confidence = excluded.confidence,
+                            match_reason = excluded.match_reason,
+                            updated_at = excluded.updated_at
+                        """,
+                        (
+                            user_id,
+                            team_key,
+                            identity,
+                            str(yahoo_player_key or "").strip() or None,
+                            str(yahoo_player_id or "").strip() or None,
+                            normalized_sleeper_id,
+                            confidence,
+                            match_reason,
+                            updated_at,
+                        ),
+                    )
+
+        return updated_at
 
     def get_app_setting(self, key: str) -> Optional[Dict[str, Any]]:
         """Get one app-level setting row."""
