@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import PulseButton from './PulseButton'
+import PlayerHeadshot from './PlayerHeadshot'
 import { apiFetch } from '../api/client'
 import './RosterView.css'
 
@@ -365,7 +366,11 @@ function RosterView() {
           return (
             <div key={player.yahoo_player_key || player.name} className="roster-player-card">
               <div className="roster-player-header">
-                <span className="roster-player-pos">{player.position || 'N/A'}</span>
+                <PlayerHeadshot
+                  espnId={player.enhanced_player?.player?.espn_id}
+                  position={player.position || 'N/A'}
+                  size={32}
+                />
                 <span className="roster-player-team">{player.team || 'FA'}</span>
               </div>
 
