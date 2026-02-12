@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     session_secret_key: str = "change-me-session-secret"
     token_encryption_key: str = ""
     sqlite_db_path: str = "data/app.db"
-    frontend_origins: str = "http://localhost:5173,http://localhost:3000"
+    frontend_origins: str = "http://localhost:5173,http://localhost:5175,http://localhost:3000"
 
     # Sleeper API
     sleeper_base_url: str = "https://api.sleeper.app/v1"

@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from starlette.middleware.sessions import SessionMiddleware
 
 from config import get_settings
-from routers import accounts, players, auth, yahoo
+from routers import accounts, players, comparison, flags, pulse, auth, yahoo
 from services.storage import get_storage
 
 load_dotenv()
@@ -21,7 +21,17 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS for frontend
+# Detect local dev (any non-HTTPS origin means we're not in production)
+_is_local = any(o.startswith("http://") for o in settings.frontend_origin_list)
+
+# Middleware is applied in reverse order — last added = outermost.
+# SessionMiddleware must be INNER so CORSMiddleware handles OPTIONS preflight first.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret_key,
+    https_only=not _is_local,
+    same_site="lax" if _is_local else "none",
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.frontend_origin_list,
@@ -29,14 +39,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=settings.session_secret_key,
-    https_only=True,
-    same_site="none",
-)
 
 # Include routers
+# Register static-path routers BEFORE players.router so /by-flag, /flags,
+# /compare are matched before the /{sleeper_id} catch-all in players.
+app.include_router(flags.router, prefix="/api/players", tags=["flags"])
+app.include_router(comparison.router, prefix="/api/players", tags=["comparison"])
+app.include_router(pulse.router, prefix="/api/players", tags=["pulse"])
 app.include_router(players.router, prefix="/api/players", tags=["players"])
 app.include_router(accounts.router, prefix="/api/auth", tags=["accounts"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])

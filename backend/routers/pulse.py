@@ -1,0 +1,115 @@
+"""
+Pulse analysis router — AI-powered player synthesis.
+
+Combines Sleeper projections, YouTube expert takes, and Gemini AI
+into a single actionable analysis.
+"""
+
+import logging
+
+from fastapi import APIRouter, HTTPException
+
+from models.schemas import (
+    ExpertTake,
+    GeminiAnalysis,
+    PulseResult,
+)
+from services.player_enrichment import enrich_player
+from services.youtube import get_youtube_service
+from services.gemini_synthesis import get_gemini_service
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+
+@router.get("/{sleeper_id}/pulse", response_model=PulseResult)
+async def get_player_pulse(sleeper_id: str):
+    """
+    Get full 'Pulse' analysis combining Sleeper data + YouTube experts + Gemini AI.
+
+    This is the differentiator feature that synthesizes:
+    - Sleeper projections and recent performance
+    - Expert takes from YouTube fantasy football content
+    - AI-powered analysis from Gemini 3.0 Flash
+    """
+    # Reuse the shared enrichment pipeline (no ADP needed for pulse)
+    enhanced_player = await enrich_player(sleeper_id, include_adp=False)
+    if not enhanced_player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    player = enhanced_player.player
+    projection_value = enhanced_player.projection.sleeper_projection
+    recent_performance = enhanced_player.recent_performance
+    flags = enhanced_player.performance_flags
+
+    # Search YouTube for expert takes on this player
+    youtube_service = get_youtube_service()
+    expert_takes = []
+    youtube_context_parts = []
+
+    video_results = youtube_service.search_videos(
+        player_name=player.name,
+        max_results=5,
+        days_back=90,
+    )
+
+    for video in video_results[:3]:
+        transcript = youtube_service.get_transcript(video["video_id"])
+        if transcript:
+            mentions = youtube_service.extract_player_mentions(transcript, player.name)
+            if mentions:
+                video_context = youtube_service.summarize_for_gemini(
+                    mentions, max_length=500
+                )
+                youtube_context_parts.append(
+                    f"[{video['channel_name']}]: {video_context}"
+                )
+
+                quote_text = mentions[0]["text"]
+                if len(quote_text) > 200:
+                    quote_text = quote_text[:200] + "..."
+
+                expert_takes.append(
+                    ExpertTake(
+                        source=video["channel_name"],
+                        reasoning=quote_text,
+                        mentioned=True,
+                    )
+                )
+            else:
+                expert_takes.append(
+                    ExpertTake(source=video["channel_name"], mentioned=False)
+                )
+        else:
+            expert_takes.append(
+                ExpertTake(source=video["channel_name"], mentioned=False)
+            )
+
+    if youtube_context_parts:
+        youtube_context = "\n\n---\n\n".join(youtube_context_parts)
+    else:
+        youtube_context = (
+            f"No recent expert analysis found for {player.name}. "
+            "Analysis based on statistical data only."
+        )
+
+    # Use Gemini to synthesize everything
+    gemini_service = get_gemini_service()
+    gemini_result = await gemini_service.synthesize_player_analysis(
+        player_name=player.name,
+        position=player.position,
+        projection=projection_value,
+        recent_performance=recent_performance,
+        flags=flags,
+        youtube_context=youtube_context,
+    )
+
+    gemini_analysis = GeminiAnalysis(**gemini_result)
+
+    return PulseResult(
+        player=enhanced_player,
+        gemini_analysis=gemini_analysis,
+        youtube_context=youtube_context,
+        expert_takes=expert_takes,
+        reddit_sentiment=None,
+    )
