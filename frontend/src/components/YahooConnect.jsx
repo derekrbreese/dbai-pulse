@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch } from '../api/client'
 import './YahooConnect.css'
 
@@ -7,12 +7,14 @@ function YahooConnect({ isAuthenticated, authLoading, onConnect, onOpenSetup, on
   const [loading, setLoading] = useState(false)
   const [teamCount, setTeamCount] = useState(0)
   const [oauthConfigured, setOauthConfigured] = useState(true)
+  const hasNotifiedConnect = useRef(false)
 
   const checkStatus = useCallback(async () => {
     if (!isAuthenticated || authLoading) {
       setStatus('disconnected')
       setTeamCount(0)
       setOauthConfigured(true)
+      hasNotifiedConnect.current = false
       return
     }
 
@@ -22,6 +24,7 @@ function YahooConnect({ isAuthenticated, authLoading, onConnect, onOpenSetup, on
       if (response.status === 401) {
         setStatus('disconnected')
         setTeamCount(0)
+        hasNotifiedConnect.current = false
         if (onUnauthorized) {
           onUnauthorized()
         }
@@ -34,10 +37,15 @@ function YahooConnect({ isAuthenticated, authLoading, onConnect, onOpenSetup, on
         if (data.connected) {
           setStatus('connected')
           setTeamCount(data.teamCount || 0)
-          if (onConnect) onConnect()
+          // Only navigate on the first detection of a connection
+          if (!hasNotifiedConnect.current && onConnect) {
+            hasNotifiedConnect.current = true
+            onConnect()
+          }
         } else {
           setStatus('disconnected')
           setTeamCount(0)
+          hasNotifiedConnect.current = false
         }
       }
     } catch (err) {

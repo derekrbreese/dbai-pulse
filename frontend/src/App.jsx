@@ -121,13 +121,21 @@ function App() {
     }
   }, [navigate, route])
 
+  const handleYahooConnected = useCallback(() => {
+    navigate('roster')
+  }, [navigate])
+
+  const handleOpenYahooSetup = useCallback(() => {
+    setShowYahooSetup(true)
+  }, [])
+
   // Yahoo Connect component for sidebar
   const yahooConnect = (
     <YahooConnect
       isAuthenticated={Boolean(authUser)}
       authLoading={authLoading}
-      onConnect={() => navigate('roster')}
-      onOpenSetup={() => setShowYahooSetup(true)}
+      onConnect={handleYahooConnected}
+      onOpenSetup={handleOpenYahooSetup}
       onRequireAuth={handleRequireYahooAuth}
       onUnauthorized={handleLogout}
     />
