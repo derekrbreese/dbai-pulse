@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../api/client'
+import PlayerHeadshot from './PlayerHeadshot'
 import './FlagsBrowser.css'
 
 const FLAGS = [
@@ -46,10 +47,6 @@ function FlagsBrowser({ onPlayerSelect, navigate }) {
     useEffect(() => {
         fetchPlayers()
     }, [fetchPlayers])
-
-    const getPositionClass = (position) => {
-        return `flags-position-${position?.toLowerCase()}`
-    }
 
     const handleCardClick = (playerData) => {
         if (onPlayerSelect) {
@@ -124,9 +121,7 @@ function FlagsBrowser({ onPlayerSelect, navigate }) {
                         {players.map(p => (
                             <div key={p.player.sleeper_id} className="player-card-mini" onClick={() => handleCardClick(p)}>
                                 <div className="player-card-header">
-                                    <span className={`player-position ${getPositionClass(p.player.position)}`}>
-                                        {p.player.position}
-                                    </span>
+                                    <PlayerHeadshot espnId={p.player.espn_id} position={p.player.position} size={24} />
                                     <span className="flags-player-team">{p.player.team || 'FA'}</span>
                                 </div>
                                 <div className="flags-player-name">{p.player.name}</div>

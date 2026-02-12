@@ -1,0 +1,19 @@
+.player-headshot {
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid;
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+.headshot-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #fff;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}

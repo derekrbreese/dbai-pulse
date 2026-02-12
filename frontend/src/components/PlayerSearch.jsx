@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch } from '../api/client'
+import PlayerHeadshot from './PlayerHeadshot'
 import './PlayerSearch.css'
 
 function PlayerSearch({ onPlayerSelect, variant = 'default' }) {
@@ -122,19 +123,6 @@ function PlayerSearch({ onPlayerSelect, variant = 'default' }) {
         }
     }
 
-    // Get position badge color
-    const getPositionColor = (position) => {
-        const colors = {
-            QB: '#e74c3c',
-            RB: '#27ae60',
-            WR: '#3498db',
-            TE: '#f39c12',
-            K: '#9b59b6',
-            DEF: '#34495e',
-        }
-        return colors[position] || '#7f8c8d'
-    }
-
     const isHero = variant === 'hero'
 
     return (
@@ -165,12 +153,7 @@ function PlayerSearch({ onPlayerSelect, variant = 'default' }) {
                             role="option"
                             aria-selected={index === highlightIndex}
                         >
-                            <span
-                                className="position-badge"
-                                style={{ backgroundColor: getPositionColor(player.position) }}
-                            >
-                                {player.position}
-                            </span>
+                            <PlayerHeadshot espnId={player.espn_id} position={player.position} size={28} />
                             <span className="search-player-name">{player.name}</span>
                             <span className="search-player-team">{player.team || 'FA'}</span>
                         </li>

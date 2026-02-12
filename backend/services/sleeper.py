@@ -93,6 +93,7 @@ class SleeperClient:
             'position': str(player.get('position') or ''),
             'team': player.get('team'),
             'bye_week': SleeperClient._coerce_int(player.get('bye_week')),
+            'espn_id': str(player.get('espn_id')) if player.get('espn_id') else None,
         }
 
         if include_search_rank:

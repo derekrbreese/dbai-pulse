@@ -1,5 +1,6 @@
 import './EnhancedCard.css'
 import PulseButton from './PulseButton'
+import PlayerHeadshot from './PlayerHeadshot'
 
 function EnhancedCard({ data }) {
     const { player, projection, recent_performance, performance_flags, context_message, on_bye, draft_value } = data
@@ -27,19 +28,6 @@ function EnhancedCard({ data }) {
         return colors[tier] || '#6b7280'
     }
 
-    // Get position color
-    const getPositionColor = (position) => {
-        const colors = {
-            QB: '#e74c3c',
-            RB: '#27ae60',
-            WR: '#3498db',
-            TE: '#f39c12',
-            K: '#9b59b6',
-            DEF: '#34495e',
-        }
-        return colors[position] || '#7f8c8d'
-    }
-
     // Format projection display
     const projectionDisplay = projection.adjusted_projection ?? projection.sleeper_projection
     const hasAdjustment = projection.adjusted_projection &&
@@ -50,12 +38,7 @@ function EnhancedCard({ data }) {
             {/* Header */}
             <div className="card-header">
                 <div className="player-info">
-                    <span
-                        className="position-badge large"
-                        style={{ backgroundColor: getPositionColor(player.position) }}
-                    >
-                        {player.position}
-                    </span>
+                    <PlayerHeadshot espnId={player.espn_id} position={player.position} size={48} />
                     <div className="player-details">
                         <h2 className="player-name">{player.name}</h2>
                         <span className="player-team">{player.team || 'Free Agent'}</span>

@@ -14,6 +14,7 @@ class PlayerBase(BaseModel):
     position: str
     team: Optional[str] = None
     bye_week: Optional[int] = None
+    espn_id: Optional[str] = None
 
 
 class PlayerProjection(BaseModel):
@@ -111,6 +112,7 @@ class PlayerSearchResult(BaseModel):
     name: str
     position: str
     team: Optional[str] = None
+    espn_id: Optional[str] = None
 
 
 class PlayerADP(BaseModel):
