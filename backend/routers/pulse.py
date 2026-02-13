@@ -7,25 +7,28 @@ into a single actionable analysis.
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
-from config import get_settings
 from models.schemas import (
     ExpertTake,
     GeminiAnalysis,
     PulseResult,
 )
 from services.player_enrichment import enrich_player
-from services.sleeper import get_sleeper_client
+from services.season_context import resolve_season_context
 from services.youtube import get_youtube_service
 from services.gemini_synthesis import get_gemini_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("/{sleeper_id}/pulse", response_model=PulseResult)
-async def get_player_pulse(sleeper_id: str):
+@limiter.limit("5/minute")
+async def get_player_pulse(request: Request, sleeper_id: str):
     """
     Get full 'Pulse' analysis combining Sleeper data + YouTube experts + Gemini AI.
 
@@ -35,11 +38,7 @@ async def get_player_pulse(sleeper_id: str):
     - AI-powered analysis from Gemini 3.0 Flash
     """
     # Resolve current season context
-    settings = get_settings()
-    client = get_sleeper_client()
-    season, week, season_type = await client.get_current_season_context(
-        settings.nfl_season, settings.nfl_week
-    )
+    season, week, season_type = await resolve_season_context()
 
     # Reuse the shared enrichment pipeline (no ADP needed for pulse)
     enhanced_player = await enrich_player(sleeper_id, include_adp=False)
@@ -87,6 +86,7 @@ async def get_player_pulse(sleeper_id: str):
 
     # Use Gemini to synthesize everything (including YouTube transcripts)
     all_sources = mentioned_sources + not_mentioned_sources
+    adjusted_projection = enhanced_player.projection.adjusted_projection
     gemini_service = get_gemini_service()
     gemini_result = await gemini_service.synthesize_player_analysis(
         player_name=player.name,
@@ -99,6 +99,9 @@ async def get_player_pulse(sleeper_id: str):
         season=season,
         week=week,
         season_type=season_type,
+        adjusted_projection=adjusted_projection,
+        team=player.team,
+        bye_week=player.bye_week,
     )
 
     gemini_analysis = GeminiAnalysis(**gemini_result)

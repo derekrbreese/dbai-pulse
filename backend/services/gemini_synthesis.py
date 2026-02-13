@@ -3,6 +3,7 @@ Gemini 3 Flash synthesis service for dbAI Pulse.
 Uses Google's genai SDK with Google Search grounding for real-time fantasy insights.
 """
 
+import asyncio
 import logging
 import json
 import re
@@ -21,6 +22,18 @@ class GeminiSynthesis:
     """Service for synthesizing fantasy football insights using Gemini 3 Flash with Google Search."""
 
     MODEL_NAME = "gemini-3-flash-preview"  # Gemini 3 Flash Preview
+
+    SYSTEM_INSTRUCTION = (
+        "You are a fantasy football analysis assistant for dbAI Pulse. "
+        "You MUST only provide information verifiable from search results or the provided data. "
+        "Do NOT fabricate statistics, injury reports, trade rumors, or expert quotes. "
+        "If you cannot verify something, say so rather than guessing. "
+        "Respond ONLY with valid JSON matching the requested schema."
+    )
+    VALID_RECOMMENDATIONS_REGULAR = {"START", "SIT", "FLEX"}
+    VALID_RECOMMENDATIONS_OFFSEASON = {"BUY", "HOLD", "SELL"}
+    VALID_CONVICTIONS = {"HIGH", "MEDIUM-HIGH", "MIXED", "MEDIUM-LOW", "LOW"}
+    VALID_RISK_LEVELS = {"LOW", "MODERATE", "HIGH"}
 
     @staticmethod
     def _sanitize_json_text(text: str) -> str:
@@ -150,6 +163,25 @@ class GeminiSynthesis:
         return season_type not in (None, 'regular')
 
     @staticmethod
+    def _sanitize_external_text(text: str) -> str:
+        """Strip prompt-injection patterns and control characters from external text."""
+        injection_patterns = re.compile(
+            r"(ignore\s+(all\s+)?previous\s+instructions"
+            r"|you\s+are\s+now"
+            r"|system\s*:"
+            r"|override\s+instructions"
+            r"|forget\s+(all\s+)?previous"
+            r"|new\s+instructions\s*:"
+            r"|act\s+as\s+if"
+            r"|pretend\s+you\s+are)",
+            re.IGNORECASE,
+        )
+        sanitized = injection_patterns.sub("[FILTERED]", text)
+        # Strip control characters except normal whitespace
+        sanitized = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", sanitized)
+        return sanitized
+
+    @staticmethod
     def create_synthesis_prompt(
         player_name: str,
         position: str,
@@ -161,6 +193,9 @@ class GeminiSynthesis:
         season: Optional[int] = None,
         week: Optional[int] = None,
         season_type: Optional[str] = None,
+        adjusted_projection: Optional[float] = None,
+        team: Optional[str] = None,
+        bye_week: Optional[int] = None,
     ) -> str:
         """
         Create a synthesis prompt for Gemini with Google Search grounding.
@@ -186,9 +221,11 @@ class GeminiSynthesis:
 
         youtube_block = ""
         if youtube_context and youtube_context.strip():
+            safe_context = GeminiSynthesis._sanitize_external_text(youtube_context)
             youtube_block = f"""
-YOUTUBE EXPERT TRANSCRIPT EXCERPTS:
-{youtube_context}
+<EXTERNAL_TRANSCRIPT_DATA>
+{safe_context}
+</EXTERNAL_TRANSCRIPT_DATA>
 """
 
         source_summaries_instruction = ""
@@ -220,13 +257,22 @@ YOUTUBE EXPERT TRANSCRIPT EXCERPTS:
             rec_schema = '"recommendation": "START" | "SIT" | "FLEX",'
             week_note = "- Be specific about THIS WEEK's outlook"
 
+        # Build extra stat lines
+        extra_stats = ""
+        if team:
+            extra_stats += f"- Team: {team}\n"
+        if adjusted_projection and adjusted_projection != projection:
+            extra_stats += f"- Adjusted Projection: {adjusted_projection} pts\n"
+        if bye_week:
+            extra_stats += f"- Bye Week: {bye_week}\n"
+
         prompt = f"""{context_header}
 
 PLAYER: {player_name} ({position})
 
 STATISTICAL DATA FROM SLEEPER API:
 - Projected Points: {projection} pts
-{perf_summary}
+{extra_stats}{perf_summary}
 - Performance Flags: {flags_str}
 {youtube_block}
 {task_block}
@@ -264,6 +310,9 @@ Respond ONLY with valid JSON, no markdown formatting."""
         season: Optional[int] = None,
         week: Optional[int] = None,
         season_type: Optional[str] = None,
+        adjusted_projection: Optional[float] = None,
+        team: Optional[str] = None,
+        bye_week: Optional[int] = None,
     ) -> Dict:
         """
         Use Gemini 3 Flash with Google Search grounding to synthesize insights.
@@ -287,6 +336,9 @@ Respond ONLY with valid JSON, no markdown formatting."""
                 season=season,
                 week=week,
                 season_type=season_type,
+                adjusted_projection=adjusted_projection,
+                team=team,
+                bye_week=bye_week,
             )
 
             logger.info(
@@ -306,18 +358,23 @@ Respond ONLY with valid JSON, no markdown formatting."""
                 types.Tool(googleSearch=types.GoogleSearch()),
             ]
 
-            # Configure generation - increased token limit for complete JSON responses
+            # Configure generation
             generate_content_config = types.GenerateContentConfig(
                 tools=tools,
-                temperature=0.7,
+                temperature=0.3,
                 max_output_tokens=4096,
+                system_instruction=GeminiSynthesis.SYSTEM_INSTRUCTION,
             )
 
-            # Generate response with search grounding
-            response = client.models.generate_content(
-                model=GeminiSynthesis.MODEL_NAME,
-                contents=contents,
-                config=generate_content_config,
+            # Generate response with search grounding (with timeout)
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.models.generate_content,
+                    model=GeminiSynthesis.MODEL_NAME,
+                    contents=contents,
+                    config=generate_content_config,
+                ),
+                timeout=30,
             )
 
             # Extract text from response
@@ -328,9 +385,31 @@ Respond ONLY with valid JSON, no markdown formatting."""
             # Try to extract JSON from the response
             result = GeminiSynthesis._extract_json(response_text)
 
+            # Validate and default enum fields
+            valid_recs = (
+                GeminiSynthesis.VALID_RECOMMENDATIONS_OFFSEASON
+                if offseason
+                else GeminiSynthesis.VALID_RECOMMENDATIONS_REGULAR
+            )
+            if result.get("recommendation") not in valid_recs:
+                logger.warning(
+                    f"Invalid recommendation '{result.get('recommendation')}' for {player_name}, defaulting to {fallback_rec}"
+                )
+                result["recommendation"] = fallback_rec
+            if result.get("conviction") not in GeminiSynthesis.VALID_CONVICTIONS:
+                logger.warning(
+                    f"Invalid conviction '{result.get('conviction')}' for {player_name}, defaulting to MIXED"
+                )
+                result["conviction"] = "MIXED"
+            if result.get("risk_level") not in GeminiSynthesis.VALID_RISK_LEVELS:
+                logger.warning(
+                    f"Invalid risk_level '{result.get('risk_level')}' for {player_name}, defaulting to MODERATE"
+                )
+                result["risk_level"] = "MODERATE"
+
             # Ensure required fields exist with defaults
             result.setdefault("recommendation", fallback_rec)
-            result.setdefault("conviction", "MEDIUM")
+            result.setdefault("conviction", "MIXED")
             result.setdefault("reasoning", "Analysis based on available data.")
             result.setdefault("key_factors", [])
             result.setdefault("risk_level", "MODERATE")
@@ -342,6 +421,18 @@ Respond ONLY with valid JSON, no markdown formatting."""
             )
 
             return result
+
+        except TimeoutError:
+            logger.error(f"Gemini synthesis timed out for {player_name}")
+            return {
+                "recommendation": fallback_rec,
+                "conviction": "LOW",
+                "reasoning": "Analysis temporarily unavailable due to timeout.",
+                "key_factors": ["Analysis unavailable"],
+                "risk_level": "MODERATE",
+                "expert_consensus": "No consensus available",
+                "sources_used": ["Sleeper API"],
+            }
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse Gemini response as JSON: {e}")
@@ -365,9 +456,9 @@ Respond ONLY with valid JSON, no markdown formatting."""
             return {
                 "recommendation": fallback_rec,
                 "conviction": "LOW",
-                "reasoning": f"Error generating analysis: {str(e)}",
-                "key_factors": ["Analysis error"],
-                "risk_level": "HIGH",
+                "reasoning": "Analysis temporarily unavailable. Please try again shortly.",
+                "key_factors": ["Analysis unavailable"],
+                "risk_level": "MODERATE",
                 "expert_consensus": "Unable to fetch expert opinions",
                 "sources_used": ["Sleeper API"],
             }
@@ -458,14 +549,19 @@ Respond ONLY with valid JSON."""
 
             config = types.GenerateContentConfig(
                 tools=tools,
-                temperature=0.7,
+                temperature=0.3,
                 max_output_tokens=4096,
+                system_instruction=GeminiSynthesis.SYSTEM_INSTRUCTION,
             )
 
-            response = client.models.generate_content(
-                model=GeminiSynthesis.MODEL_NAME,
-                contents=contents,
-                config=config,
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.models.generate_content,
+                    model=GeminiSynthesis.MODEL_NAME,
+                    contents=contents,
+                    config=config,
+                ),
+                timeout=30,
             )
 
             # Handle potentially empty response
@@ -496,12 +592,24 @@ Respond ONLY with valid JSON."""
 
             return result
 
+        except TimeoutError:
+            logger.error("Gemini comparison timed out")
+            return {
+                "winner": "TOSS_UP",
+                "conviction": "LOW",
+                "reasoning": "Comparison temporarily unavailable due to timeout.",
+                "key_advantages_a": [],
+                "key_advantages_b": [],
+                "matchup_edge": "Unable to determine",
+                "sources_used": ["Sleeper API"],
+            }
+
         except Exception as e:
             logger.error(f"Error comparing players: {e}")
             return {
                 "winner": "TOSS_UP",
                 "conviction": "LOW",
-                "reasoning": f"Error during comparison: {str(e)}",
+                "reasoning": "Comparison temporarily unavailable. Please try again shortly.",
                 "key_advantages_a": [],
                 "key_advantages_b": [],
                 "matchup_edge": "Unable to determine",

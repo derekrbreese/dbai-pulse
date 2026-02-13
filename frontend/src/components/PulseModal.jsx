@@ -1,8 +1,28 @@
+import { useEffect, useRef } from 'react'
 import './PulseModal.css'
 
 function PulseModal({ data, playerName: _playerName, onClose }) {
     const { gemini_analysis, player } = data
     const isOffseason = data.season_type && data.season_type !== 'regular'
+    const modalRef = useRef(null)
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose()
+        }
+        document.addEventListener('keydown', handleKeyDown)
+        modalRef.current?.focus()
+        return () => document.removeEventListener('keydown', handleKeyDown)
+    }, [onClose])
+
+    const getRecommendationColor = (recommendation) => {
+        switch (recommendation) {
+            case 'START': case 'BUY': return '#22c55e'
+            case 'SIT': case 'SELL': return '#ef4444'
+            case 'FLEX': case 'HOLD': return '#f59e0b'
+            default: return '#6b7280'
+        }
+    }
 
     const getConvictionColor = (conviction) => {
         switch (conviction) {
@@ -38,7 +58,15 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
 
     return (
         <div className="pulse-modal-overlay" onClick={onClose}>
-            <div className="pulse-modal" onClick={(e) => e.stopPropagation()}>
+            <div
+                className="pulse-modal"
+                ref={modalRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label={`Pulse analysis for ${player.player.name}`}
+                tabIndex={-1}
+                onClick={(e) => e.stopPropagation()}
+            >
                 {/* Header */}
                 <div className="pulse-modal-header">
                     <div className="pulse-modal-title">
@@ -52,7 +80,7 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
                             </p>
                         </div>
                     </div>
-                    <button className="pulse-close" onClick={onClose}>✕</button>
+                    <button className="pulse-close" onClick={onClose} aria-label="Close analysis">✕</button>
                 </div>
 
                 {/* Player Info */}
@@ -72,7 +100,7 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
                         </span>
                         <div>
                             <div className="recommendation-label">{isOffseason ? 'Dynasty Value' : 'Recommendation'}</div>
-                            <div className="recommendation-value">{gemini_analysis.recommendation}</div>
+                            <div className="recommendation-value" style={{ color: getRecommendationColor(gemini_analysis.recommendation) }}>{gemini_analysis.recommendation}</div>
                         </div>
                     </div>
 

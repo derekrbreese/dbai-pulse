@@ -6,6 +6,9 @@ FastAPI Backend
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from starlette.middleware.sessions import SessionMiddleware
 
 from config import get_settings
@@ -20,6 +23,11 @@ app = FastAPI(
     description="Fantasy Football Intelligence Dashboard with AI-powered expert synthesis",
     version="0.1.0",
 )
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Detect local dev (any non-HTTPS origin means we're not in production)
 _is_local = any(o.startswith("http://") for o in settings.frontend_origin_list)
