@@ -6,8 +6,10 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
+from config import get_settings
 from models.schemas import ComparisonResult
 from services.gemini_synthesis import get_gemini_service
+from services.sleeper import get_sleeper_client
 from services.player_enrichment import enrich_player_for_comparison
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,13 @@ async def compare_players(player_a_id: str, player_b_id: str):
     Returns winner recommendation with reasoning.
     """
     gemini_service = get_gemini_service()
+
+    # Resolve current season context
+    settings = get_settings()
+    client = get_sleeper_client()
+    season, week, season_type = await client.get_current_season_context(
+        settings.nfl_season, settings.nfl_week
+    )
 
     logger.info(f"Comparing players {player_a_id} vs {player_b_id}")
 
@@ -47,6 +56,9 @@ async def compare_players(player_a_id: str, player_b_id: str):
         player_b_avg=data_b["perf"].avg_points if data_b["perf"] else 0,
         player_b_trend=data_b["perf"].trend if data_b["perf"] else "unknown",
         player_b_flags=data_b["flags"],
+        season=season,
+        week=week,
+        season_type=season_type,
     )
 
     logger.info(f"Gemini returned winner: {comparison.get('winner')}")
@@ -68,4 +80,7 @@ async def compare_players(player_a_id: str, player_b_id: str):
         key_advantages_b=comparison["key_advantages_b"],
         matchup_edge=comparison["matchup_edge"],
         sources_used=comparison["sources_used"],
+        season=season,
+        week=week,
+        season_type=season_type,
     )

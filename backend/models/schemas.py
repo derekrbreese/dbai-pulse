@@ -88,6 +88,9 @@ class PulseResult(BaseModel):
     youtube_context: str = ""
     expert_takes: List[ExpertTake] = []
     reddit_sentiment: Optional[RedditSentiment] = None
+    season: Optional[int] = None
+    week: Optional[int] = None
+    season_type: Optional[str] = None
 
 
 class ComparisonResult(BaseModel):
@@ -103,6 +106,9 @@ class ComparisonResult(BaseModel):
     key_advantages_b: List[str] = []
     matchup_edge: str = ""
     sources_used: List[str] = []
+    season: Optional[int] = None
+    week: Optional[int] = None
+    season_type: Optional[str] = None
 
 
 class PlayerSearchResult(BaseModel):

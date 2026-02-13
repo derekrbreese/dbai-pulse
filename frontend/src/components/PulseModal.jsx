@@ -2,6 +2,7 @@ import './PulseModal.css'
 
 function PulseModal({ data, playerName: _playerName, onClose }) {
     const { gemini_analysis, player } = data
+    const isOffseason = data.season_type && data.season_type !== 'regular'
 
     const getConvictionColor = (conviction) => {
         switch (conviction) {
@@ -19,6 +20,9 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
             case 'START': return '🚀'
             case 'SIT': return '🪑'
             case 'FLEX': return '🤔'
+            case 'BUY': return '📈'
+            case 'HOLD': return '✊'
+            case 'SELL': return '📉'
             default: return '📊'
         }
     }
@@ -41,7 +45,11 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
                         <span className="pulse-icon-large">🔮</span>
                         <div>
                             <h2>The Pulse</h2>
-                            <p className="pulse-subtitle">AI-Powered Fantasy Analysis</p>
+                            <p className="pulse-subtitle">
+                                {isOffseason
+                                    ? `${data.season || 2025} Offseason Analysis`
+                                    : 'AI-Powered Fantasy Analysis'}
+                            </p>
                         </div>
                     </div>
                     <button className="pulse-close" onClick={onClose}>✕</button>
@@ -63,7 +71,7 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
                             {getRecommendationIcon(gemini_analysis.recommendation)}
                         </span>
                         <div>
-                            <div className="recommendation-label">Recommendation</div>
+                            <div className="recommendation-label">{isOffseason ? 'Dynasty Value' : 'Recommendation'}</div>
                             <div className="recommendation-value">{gemini_analysis.recommendation}</div>
                         </div>
                     </div>
@@ -146,7 +154,11 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
                         </li>
                         <li>
                             <span className="citation-source">Sleeper API</span>
-                            <span className="citation-detail">Player projections & stats, Week 16, 2025 NFL season</span>
+                            <span className="citation-detail">
+                                {isOffseason
+                                    ? `Player projections & stats, ${data.season || 2025} NFL season`
+                                    : `Player projections & stats, Week ${data.week || '?'}, ${data.season || 2025} NFL season`}
+                            </span>
                         </li>
                         {gemini_analysis.sources_used && gemini_analysis.sources_used.length > 0 && (
                             <li>

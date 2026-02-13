@@ -3,6 +3,7 @@ import './ComparisonResult.css'
 function ComparisonResult({ data }) {
     const { player_a, player_b, winner, winner_name, conviction, reasoning,
         key_advantages_a, key_advantages_b, matchup_edge, sources_used } = data
+    const isOffseason = data.season_type && data.season_type !== 'regular'
 
     const getWinnerClass = () => {
         if (winner === 'A') return 'winner-a'
@@ -25,7 +26,7 @@ function ComparisonResult({ data }) {
             <div className={`winner-banner ${getWinnerClass()}`}>
                 <span className="winner-icon">🏆</span>
                 <div className="winner-info">
-                    <span className="winner-label">Winner</span>
+                    <span className="winner-label">{isOffseason ? 'Higher Value' : 'Winner'}</span>
                     <span className="winner-name">{winner_name}</span>
                 </div>
                 <span
@@ -96,7 +97,7 @@ function ComparisonResult({ data }) {
             {/* Matchup Edge */}
             {matchup_edge && (
                 <div className="matchup-edge">
-                    <h4>🏈 Matchup Edge</h4>
+                    <h4>{isOffseason ? '📊 Value Edge' : '🏈 Matchup Edge'}</h4>
                     <p>{matchup_edge}</p>
                 </div>
             )}

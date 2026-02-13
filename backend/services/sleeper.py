@@ -313,6 +313,20 @@ class SleeperClient:
             logger.warning('Failed to resolve current season/week: %s', exc)
             return fallback_season, fallback_week
 
+    async def get_current_season_context(
+        self, fallback_season: int, fallback_week: int
+    ) -> Tuple[int, int, str]:
+        """Return (season, week, season_type). Falls back to 'off' on error."""
+        try:
+            state = await self.get_nfl_state()
+            season = self._coerce_int(state.get('season')) or fallback_season
+            week = self._coerce_int(state.get('week')) or fallback_week
+            season_type = state.get('season_type') or 'off'
+            return season, week, season_type
+        except Exception as exc:  # noqa: BLE001
+            logger.warning('Failed to resolve season context: %s', exc)
+            return fallback_season, fallback_week, 'off'
+
     async def search_players(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Search players by name.

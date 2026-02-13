@@ -9,12 +9,14 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
+from config import get_settings
 from models.schemas import (
     ExpertTake,
     GeminiAnalysis,
     PulseResult,
 )
 from services.player_enrichment import enrich_player
+from services.sleeper import get_sleeper_client
 from services.youtube import get_youtube_service
 from services.gemini_synthesis import get_gemini_service
 
@@ -32,6 +34,13 @@ async def get_player_pulse(sleeper_id: str):
     - Expert takes from YouTube fantasy football content
     - AI-powered analysis from Gemini 3.0 Flash
     """
+    # Resolve current season context
+    settings = get_settings()
+    client = get_sleeper_client()
+    season, week, season_type = await client.get_current_season_context(
+        settings.nfl_season, settings.nfl_week
+    )
+
     # Reuse the shared enrichment pipeline (no ADP needed for pulse)
     enhanced_player = await enrich_player(sleeper_id, include_adp=False)
     if not enhanced_player:
@@ -87,6 +96,9 @@ async def get_player_pulse(sleeper_id: str):
         flags=flags,
         youtube_context=youtube_context,
         youtube_sources=mentioned_sources if mentioned_sources else None,
+        season=season,
+        week=week,
+        season_type=season_type,
     )
 
     gemini_analysis = GeminiAnalysis(**gemini_result)
@@ -114,4 +126,7 @@ async def get_player_pulse(sleeper_id: str):
         youtube_context=youtube_context or f"No recent expert analysis found for {player.name}.",
         expert_takes=expert_takes,
         reddit_sentiment=None,
+        season=season,
+        week=week,
+        season_type=season_type,
     )
