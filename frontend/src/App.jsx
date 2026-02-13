@@ -256,7 +256,7 @@ function App() {
         }
         return (
           <section className="roster-section">
-            <RosterView />
+            <RosterView onPlayerSelect={handlePlayerSelect} navigate={navigate} />
           </section>
         )
 

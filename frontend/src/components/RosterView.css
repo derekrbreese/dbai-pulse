@@ -194,6 +194,12 @@
   background: var(--bg-hover);
 }
 
+.roster-player-card.clickable:hover {
+  border-color: var(--accent-light, #818cf8);
+  transform: translateY(-1px);
+  transition: background-color 0.2s, border-color 0.2s, transform 0.15s;
+}
+
 .roster-player-header {
   display: flex;
   justify-content: space-between;

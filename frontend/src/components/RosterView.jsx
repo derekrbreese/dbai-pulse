@@ -10,7 +10,7 @@ const DEFAULT_PREFERENCES = {
   focus: 'upside',
 }
 
-function RosterView() {
+function RosterView({ onPlayerSelect, navigate }) {
   const [teams, setTeams] = useState([])
   const [selectedTeamKey, setSelectedTeamKey] = useState('')
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES)
@@ -364,7 +364,17 @@ function RosterView() {
             : null
 
           return (
-            <div key={player.yahoo_player_key || player.name} className="roster-player-card">
+            <div
+              key={player.yahoo_player_key || player.name}
+              className={`roster-player-card${matched ? ' clickable' : ''}`}
+              onClick={() => {
+                if (matched && onPlayerSelect) {
+                  onPlayerSelect(player.enhanced_player.player)
+                  if (navigate) navigate('search')
+                }
+              }}
+              style={matched ? { cursor: 'pointer' } : undefined}
+            >
               <div className="roster-player-header">
                 <PlayerHeadshot
                   espnId={player.enhanced_player?.player?.espn_id}
