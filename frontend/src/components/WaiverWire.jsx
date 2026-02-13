@@ -4,7 +4,7 @@ import PlayerHeadshot from './PlayerHeadshot'
 import { apiFetch } from '../api/client'
 import './WaiverWire.css'
 
-const POSITION_FILTERS = ['All', 'QB', 'RB', 'WR', 'TE', 'K']
+const POSITION_FILTERS = ['All', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
 const DEFAULT_PREFERENCES = {
   scoring: 'ppr',
