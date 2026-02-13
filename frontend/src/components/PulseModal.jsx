@@ -120,7 +120,7 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
                                     <div className="expert-take-source">{take.source}</div>
                                     <div className="expert-take-status">✓ Player mentioned</div>
                                     {take.reasoning && (
-                                        <p className="expert-take-quote">"{take.reasoning}"</p>
+                                        <p className="expert-take-quote">{take.reasoning}</p>
                                     )}
                                 </div>
                             ))}

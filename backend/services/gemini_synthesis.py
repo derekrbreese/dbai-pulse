@@ -151,6 +151,8 @@ class GeminiSynthesis:
         projection: float,
         recent_performance: Optional[RecentPerformance],
         flags: List[str],
+        youtube_context: str = "",
+        youtube_sources: Optional[List[str]] = None,
     ) -> str:
         """
         Create a synthesis prompt for Gemini with Google Search grounding.
@@ -166,6 +168,22 @@ class GeminiSynthesis:
 
         flags_str = ", ".join(flags) if flags else "None"
 
+        youtube_block = ""
+        if youtube_context and youtube_context.strip():
+            youtube_block = f"""
+YOUTUBE EXPERT TRANSCRIPT EXCERPTS:
+{youtube_context}
+"""
+
+        source_summaries_instruction = ""
+        if youtube_sources:
+            source_list = ", ".join(f'"{s}"' for s in youtube_sources)
+            source_summaries_instruction = f"""    "expert_source_summaries": {{
+        "<source name>": "1-sentence summary of what this source said about the player"
+    }},
+    The following YouTube sources were analyzed: {source_list}. For each source that had relevant commentary, include a 1-sentence summary in expert_source_summaries. Omit sources with nothing relevant.
+"""
+
         prompt = f"""You are an expert fantasy football analyst helping with Week 16 of the 2025 NFL season.
 
 PLAYER: {player_name} ({position})
@@ -174,14 +192,15 @@ STATISTICAL DATA FROM SLEEPER API:
 - Projected Points: {projection} pts
 {perf_summary}
 - Performance Flags: {flags_str}
-
+{youtube_block}
 YOUR TASK:
 1. Use Google Search to find the LATEST news, injury updates, and expert opinions about {player_name} for this week
 2. Look for recent Reddit discussions, Twitter/X posts, and fantasy analyst takes
 3. Check for any breaking news that affects their value
 4. Consider their matchup this week
+5. If YouTube expert transcript excerpts are provided above, incorporate their insights into your analysis
 
-Based on ALL available information (stats + live search results), provide a JSON response:
+Based on ALL available information (stats + live search results + expert transcripts), provide a JSON response:
 {{
     "recommendation": "START" | "SIT" | "FLEX",
     "conviction": "HIGH" | "MEDIUM-HIGH" | "MIXED" | "MEDIUM-LOW" | "LOW",
@@ -189,13 +208,14 @@ Based on ALL available information (stats + live search results), provide a JSON
     "key_factors": ["factor 1 with source", "factor 2 with source", "factor 3 with source"],
     "risk_level": "LOW" | "MODERATE" | "HIGH",
     "expert_consensus": "summary of what fantasy experts are saying, cite sources",
-    "sources_used": ["source 1", "source 2", "source 3"]
-}}
+    "sources_used": ["source 1", "source 2", "source 3"],
+{source_summaries_instruction}}}
 
-IMPORTANT: 
+IMPORTANT:
 - Cite specific sources you find (e.g., "FantasyPros ranks him...", "Reddit r/fantasyfootball says...")
 - Include any injury news or matchup concerns
 - Be specific about THIS WEEK's outlook
+- For expert_source_summaries, write clean summaries (NOT raw transcript quotes)
 
 Respond ONLY with valid JSON, no markdown formatting."""
 
@@ -208,7 +228,8 @@ Respond ONLY with valid JSON, no markdown formatting."""
         projection: float,
         recent_performance: Optional[RecentPerformance],
         flags: List[str],
-        youtube_context: str = "",  # Kept for backwards compatibility
+        youtube_context: str = "",
+        youtube_sources: Optional[List[str]] = None,
     ) -> Dict:
         """
         Use Gemini 3 Flash with Google Search grounding to synthesize insights.
@@ -224,6 +245,8 @@ Respond ONLY with valid JSON, no markdown formatting."""
                 projection=projection,
                 recent_performance=recent_performance,
                 flags=flags,
+                youtube_context=youtube_context,
+                youtube_sources=youtube_sources,
             )
 
             logger.info(

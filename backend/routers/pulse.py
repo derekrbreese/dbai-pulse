@@ -44,7 +44,8 @@ async def get_player_pulse(sleeper_id: str):
 
     # Search YouTube for expert takes on this player
     youtube_service = get_youtube_service()
-    expert_takes = []
+    mentioned_sources = []
+    not_mentioned_sources = []
     youtube_context_parts = []
 
     video_results = youtube_service.search_videos(
@@ -64,36 +65,19 @@ async def get_player_pulse(sleeper_id: str):
                 youtube_context_parts.append(
                     f"[{video['channel_name']}]: {video_context}"
                 )
-
-                quote_text = mentions[0]["text"]
-                if len(quote_text) > 200:
-                    quote_text = quote_text[:200] + "..."
-
-                expert_takes.append(
-                    ExpertTake(
-                        source=video["channel_name"],
-                        reasoning=quote_text,
-                        mentioned=True,
-                    )
-                )
+                mentioned_sources.append(video["channel_name"])
             else:
-                expert_takes.append(
-                    ExpertTake(source=video["channel_name"], mentioned=False)
-                )
+                not_mentioned_sources.append(video["channel_name"])
         else:
-            expert_takes.append(
-                ExpertTake(source=video["channel_name"], mentioned=False)
-            )
+            not_mentioned_sources.append(video["channel_name"])
 
     if youtube_context_parts:
         youtube_context = "\n\n---\n\n".join(youtube_context_parts)
     else:
-        youtube_context = (
-            f"No recent expert analysis found for {player.name}. "
-            "Analysis based on statistical data only."
-        )
+        youtube_context = ""
 
-    # Use Gemini to synthesize everything
+    # Use Gemini to synthesize everything (including YouTube transcripts)
+    all_sources = mentioned_sources + not_mentioned_sources
     gemini_service = get_gemini_service()
     gemini_result = await gemini_service.synthesize_player_analysis(
         player_name=player.name,
@@ -102,14 +86,32 @@ async def get_player_pulse(sleeper_id: str):
         recent_performance=recent_performance,
         flags=flags,
         youtube_context=youtube_context,
+        youtube_sources=mentioned_sources if mentioned_sources else None,
     )
 
     gemini_analysis = GeminiAnalysis(**gemini_result)
 
+    # Build expert takes using Gemini-generated summaries instead of raw transcript
+    source_summaries = gemini_result.get("expert_source_summaries", {})
+    expert_takes = []
+    for source_name in mentioned_sources:
+        summary = source_summaries.get(source_name)
+        expert_takes.append(
+            ExpertTake(
+                source=source_name,
+                reasoning=summary or "Discussed this player in recent video.",
+                mentioned=True,
+            )
+        )
+    for source_name in not_mentioned_sources:
+        expert_takes.append(
+            ExpertTake(source=source_name, mentioned=False)
+        )
+
     return PulseResult(
         player=enhanced_player,
         gemini_analysis=gemini_analysis,
-        youtube_context=youtube_context,
+        youtube_context=youtube_context or f"No recent expert analysis found for {player.name}.",
         expert_takes=expert_takes,
         reddit_sentiment=None,
     )
