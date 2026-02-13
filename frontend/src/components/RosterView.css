@@ -434,6 +434,96 @@
   cursor: pointer;
 }
 
+/* ===== Compare Mode ===== */
+.roster-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.compare-toggle {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.compare-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.compare-toggle.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #818cf8;
+}
+
+.compare-banner {
+  margin: 0 20px 16px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: #a5b4fc;
+}
+
+.compare-banner button {
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #c7d2fe;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.compare-banner button:hover {
+  background: rgba(99, 102, 241, 0.15);
+}
+
+.roster-player-card.compare-selectable {
+  border: 1px solid transparent;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.roster-player-card.compare-selectable:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.roster-player-card.compare-selected {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.compare-a-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
 @media (max-width: 900px) {
   .roster-header {
     padding: 0 14px 14px;
@@ -481,6 +571,15 @@
     margin: 0 14px 14px;
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .compare-banner {
+    margin: 0 14px 14px;
+  }
+
+  .roster-header-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .control-actions {

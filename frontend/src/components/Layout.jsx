@@ -7,6 +7,7 @@ const NAV_ITEMS = [
     { id: 'trends', label: 'Trends & Insights', icon: '📊', shortLabel: 'Trends' },
     { id: 'compare', label: 'Compare Players', icon: '🔄', shortLabel: 'Compare' },
     { id: 'roster', label: 'My Roster', icon: '🏈', shortLabel: 'Roster' },
+    { id: 'waiver', label: 'Waiver Wire', icon: '📋', shortLabel: 'Waivers' },
 ]
 
 function Layout({ children, route, navigate, authUser, onLogout, yahooConnect }) {

@@ -116,6 +116,19 @@
   }
 }
 
+/* ===== Prefill Status ===== */
+.comparison-prefill-status {
+  margin: 0 28px;
+  padding: 10px 16px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
 /* ===== Error ===== */
 .comparison-error {
   margin: 0 28px 20px;

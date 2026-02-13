@@ -16,6 +16,9 @@ function RosterView({ onPlayerSelect, navigate }) {
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES)
   const [insights, setInsights] = useState(null)
 
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareA, setCompareA] = useState(null)
+
   const [loadingTeams, setLoadingTeams] = useState(true)
   const [loadingInsights, setLoadingInsights] = useState(false)
   const [savingPreferences, setSavingPreferences] = useState(false)
@@ -258,15 +261,47 @@ function RosterView({ onPlayerSelect, navigate }) {
           </select>
         </div>
 
-        {selectedTeam && (
-          <div className="team-info">
-            <span className="team-name">{selectedTeam.team_name}</span>
-            {selectedTeam.season && (
-              <span className="team-season">Season {selectedTeam.season}</span>
-            )}
-          </div>
-        )}
+        <div className="roster-header-actions">
+          {selectedTeam && (
+            <div className="team-info">
+              <span className="team-name">{selectedTeam.team_name}</span>
+              {selectedTeam.season && (
+                <span className="team-season">Season {selectedTeam.season}</span>
+              )}
+            </div>
+          )}
+
+          <button
+            type="button"
+            className={`compare-toggle${compareMode ? ' active' : ''}`}
+            onClick={() => {
+              setCompareMode(prev => !prev)
+              setCompareA(null)
+            }}
+          >
+            {compareMode ? 'Exit Compare' : 'Compare'}
+          </button>
+        </div>
       </header>
+
+      {compareMode && (
+        <div className="compare-banner">
+          <span>
+            {compareA
+              ? `Player A selected — now pick Player B`
+              : 'Select 2 matched players to compare'}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setCompareMode(false)
+              setCompareA(null)
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="roster-inline-error">
@@ -363,12 +398,31 @@ function RosterView({ onPlayerSelect, navigate }) {
                 ?? player.enhanced_player.projection.sleeper_projection
             : null
 
+          const isCompareA = compareMode && matched && compareA === player.matched_sleeper_id
+          const compareSelectable = compareMode && matched
+
           return (
             <div
               key={player.yahoo_player_key || player.name}
-              className={`roster-player-card${matched ? ' clickable' : ''}`}
+              className={[
+                'roster-player-card',
+                matched ? 'clickable' : '',
+                compareSelectable ? 'compare-selectable' : '',
+                isCompareA ? 'compare-selected' : '',
+              ].filter(Boolean).join(' ')}
               onClick={() => {
-                if (matched && onPlayerSelect) {
+                if (!matched) return
+                if (compareMode) {
+                  if (!compareA) {
+                    setCompareA(player.matched_sleeper_id)
+                  } else if (compareA !== player.matched_sleeper_id) {
+                    navigate(`compare?a=${compareA}&b=${player.matched_sleeper_id}`)
+                    setCompareMode(false)
+                    setCompareA(null)
+                  }
+                  return
+                }
+                if (onPlayerSelect) {
                   onPlayerSelect(player.enhanced_player.player)
                   if (navigate) navigate('search')
                 }
@@ -382,6 +436,7 @@ function RosterView({ onPlayerSelect, navigate }) {
                   size={32}
                 />
                 <span className="roster-player-team">{player.team || 'FA'}</span>
+                {isCompareA && <span className="compare-a-badge">A</span>}
               </div>
 
               <h3 className="roster-player-name">{player.name}</h3>

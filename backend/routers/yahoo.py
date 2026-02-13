@@ -12,6 +12,7 @@ from models.schemas import (
     RosterInsightsResponse,
     TeamFeedbackPreferences,
     TeamFeedbackPreferencesUpdate,
+    WaiverWireResponse,
 )
 from routers.session_utils import get_authenticated_user_id
 from services.roster_insights import get_roster_insights_service
@@ -300,6 +301,58 @@ async def refresh_team_insights(
         raise
     except Exception as exc:
         logger.error("Failed to refresh team insights: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/leagues/{league_key}/waivers", response_model=WaiverWireResponse)
+async def get_waiver_wire(
+    request: Request,
+    league_key: str,
+    position: Optional[str] = Query(None, description="Position filter (QB, RB, WR, TE, K)"),
+    scoring: Literal["ppr", "half_ppr", "std"] = Query("ppr"),
+    risk: Literal["conservative", "balanced", "aggressive"] = Query("balanced"),
+    focus: Literal["floor", "upside", "ceiling"] = Query("upside"),
+    count: int = Query(50, ge=1, le=100),
+):
+    """
+    Get waiver wire intelligence for available free agents in a Yahoo league.
+    """
+    user_id, token_data, token_manager, yahoo_service = await _get_authed_yahoo_context(request)
+
+    # Resolve league name from teams data
+    league_name = None
+    try:
+        teams = await _get_user_teams_with_metadata(yahoo_service)
+        for team in teams:
+            if team.get("league_key") == league_key:
+                league_name = team.get("league_name")
+                break
+    except Exception:
+        pass
+
+    preferences = TeamFeedbackPreferences(scoring=scoring, risk=risk, focus=focus)
+    insights_service = get_roster_insights_service()
+
+    try:
+        result = await insights_service.generate_waiver_insights(
+            yahoo_service=yahoo_service,
+            user_id=user_id,
+            league_key=league_key,
+            league_name=league_name,
+            preferences=preferences,
+            position=position,
+            count=count,
+        )
+        token_manager.save_external_token(
+            user_id=user_id,
+            token_payload=yahoo_service.get_token_data(),
+            existing_token=token_data,
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to build waiver wire insights: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
 
 

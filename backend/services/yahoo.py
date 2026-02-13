@@ -24,6 +24,7 @@ _executor = ThreadPoolExecutor(max_workers=4)
 _leagues_cache: TTLCache = TTLCache(maxsize=50, ttl=get_settings().yahoo_cache_ttl_seconds)
 _teams_cache: TTLCache = TTLCache(maxsize=50, ttl=get_settings().yahoo_cache_ttl_seconds)
 _roster_cache: TTLCache = TTLCache(maxsize=200, ttl=get_settings().yahoo_cache_ttl_seconds)
+_waiver_cache: TTLCache = TTLCache(maxsize=100, ttl=600)
 
 
 class YahooFantasyService:
@@ -621,6 +622,168 @@ class YahooFantasyService:
         _roster_cache[cache_key] = result
         return result
 
+    async def get_league_players(
+        self,
+        league_key: str,
+        position: Optional[str] = None,
+        count: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch available (free agent) players from a Yahoo league.
+
+        Uses direct Yahoo API: /league/{key}/players;status=A;sort=AR
+
+        Args:
+            league_key: Full Yahoo league key (e.g. "449.l.12345")
+            position: Optional position filter (QB, RB, WR, TE, K)
+            count: Max number of players to return (default 50)
+
+        Returns:
+            List of player dicts with player_id, player_key, name, position, team,
+            status, percent_owned.
+        """
+        cache_key = self._user_cache_key("waiver", league_key, position or "ALL", count)
+        if cache_key in _waiver_cache:
+            return _waiver_cache[cache_key]
+
+        access_token = self._token_data.get("access_token")
+        if not access_token:
+            raise ValueError("No access token available")
+
+        filters = f"status=A;sort=AR;count={count}"
+        if position:
+            filters += f";position={position}"
+
+        url = (
+            f"https://fantasysports.yahooapis.com/fantasy/v2"
+            f"/league/{league_key}/players;{filters}?format=json"
+        )
+
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(url, headers={"Authorization": f"Bearer {access_token}"})
+
+        if resp.status_code == 401:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=401, detail="Yahoo token expired. Please reconnect.")
+        resp.raise_for_status()
+
+        data = resp.json()
+        result: List[Dict[str, Any]] = []
+
+        try:
+            league_content = data.get("fantasy_content", {}).get("league", [])
+            players_block = None
+            for item in (league_content if isinstance(league_content, list) else [league_content]):
+                if isinstance(item, dict) and "players" in item:
+                    players_block = item["players"]
+                    break
+
+            if not players_block:
+                _waiver_cache[cache_key] = result
+                return result
+
+            for pkey, pval in players_block.items():
+                if pkey == "count" or not isinstance(pval, dict):
+                    continue
+                player_info_list = pval.get("player", [])
+                if not isinstance(player_info_list, list):
+                    continue
+
+                player_id = None
+                player_key_val = None
+                player_name = "Unknown"
+                player_position = None
+                team = None
+                status = None
+                percent_owned = None
+
+                for part in player_info_list:
+                    if isinstance(part, list):
+                        for sub in part:
+                            if isinstance(sub, dict):
+                                if "player_id" in sub:
+                                    player_id = str(sub["player_id"])
+                                if "player_key" in sub:
+                                    player_key_val = str(sub["player_key"])
+                                if "display_position" in sub:
+                                    player_position = str(sub["display_position"])
+                                if "editorial_team_abbr" in sub:
+                                    team = str(sub["editorial_team_abbr"])
+                                if "status" in sub:
+                                    status = str(sub["status"])
+                                if "name" in sub:
+                                    name_val = sub["name"]
+                                    if isinstance(name_val, dict):
+                                        player_name = str(
+                                            name_val.get("full") or name_val.get("first") or "Unknown"
+                                        )
+                                    else:
+                                        player_name = str(name_val)
+                                if "percent_owned" in sub:
+                                    po = sub["percent_owned"]
+                                    if isinstance(po, dict):
+                                        try:
+                                            percent_owned = float(po.get("value", 0))
+                                        except (TypeError, ValueError):
+                                            pass
+                                    elif isinstance(po, list):
+                                        for po_item in po:
+                                            if isinstance(po_item, dict) and "value" in po_item:
+                                                try:
+                                                    percent_owned = float(po_item["value"])
+                                                except (TypeError, ValueError):
+                                                    pass
+                    elif isinstance(part, dict):
+                        if "player_id" in part:
+                            player_id = str(part["player_id"])
+                        if "player_key" in part:
+                            player_key_val = str(part["player_key"])
+                        if "display_position" in part:
+                            player_position = str(part["display_position"])
+                        if "editorial_team_abbr" in part:
+                            team = str(part["editorial_team_abbr"])
+                        if "status" in part:
+                            status = str(part["status"])
+                        if "name" in part:
+                            name_val = part["name"]
+                            if isinstance(name_val, dict):
+                                player_name = str(
+                                    name_val.get("full") or name_val.get("first") or "Unknown"
+                                )
+                            else:
+                                player_name = str(name_val)
+                        if "percent_owned" in part:
+                            po = part["percent_owned"]
+                            if isinstance(po, dict):
+                                try:
+                                    percent_owned = float(po.get("value", 0))
+                                except (TypeError, ValueError):
+                                    pass
+                            elif isinstance(po, list):
+                                for po_item in po:
+                                    if isinstance(po_item, dict) and "value" in po_item:
+                                        try:
+                                            percent_owned = float(po_item["value"])
+                                        except (TypeError, ValueError):
+                                            pass
+
+                if player_key_val or player_id:
+                    result.append({
+                        "player_id": player_id,
+                        "player_key": player_key_val,
+                        "name": player_name,
+                        "position": player_position,
+                        "team": team,
+                        "status": status,
+                        "percent_owned": percent_owned,
+                    })
+
+        except Exception as exc:
+            logger.warning("Direct Yahoo league players parse incomplete: %s", exc)
+
+        _waiver_cache[cache_key] = result
+        return result
+
     async def get_league_draft_results(self, league_id: str) -> List[Dict[str, Any]]:
         """
         Get draft results for a league.
@@ -699,7 +862,7 @@ class YahooFantasyService:
         """Clear all in-memory Yahoo cache entries for this user."""
         user_prefix = f"{self._user_id}:"
 
-        for cache in (_leagues_cache, _teams_cache, _roster_cache):
+        for cache in (_leagues_cache, _teams_cache, _roster_cache, _waiver_cache):
             for key in list(cache.keys()):
                 if str(key).startswith(user_prefix):
                     del cache[key]

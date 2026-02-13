@@ -35,6 +35,14 @@ function DashboardHome({ navigate, onPlayerSelect }) {
             gradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
             glow: 'rgba(59, 130, 246, 0.15)',
         },
+        {
+            id: 'waiver',
+            icon: '📋',
+            title: 'Waiver Wire',
+            description: 'Find available players worth picking up in your league',
+            gradient: 'linear-gradient(135deg, #ec4899, #f97316)',
+            glow: 'rgba(236, 72, 153, 0.15)',
+        },
     ]
 
     return (

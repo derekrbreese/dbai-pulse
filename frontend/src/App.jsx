@@ -11,12 +11,13 @@ import FlagsBrowser from './components/FlagsBrowser'
 import AuthPage from './components/AuthPage'
 import YahooConnect from './components/YahooConnect'
 import RosterView from './components/RosterView'
+import WaiverWire from './components/WaiverWire'
 import YahooSetupPage from './components/YahooSetupPage'
 import { PlayerCardSkeleton, ChartSkeleton } from './components/SkeletonLoader'
 import './App.css'
 
 function App() {
-  const { route, navigate } = useHashRouter()
+  const { route, params, navigate } = useHashRouter()
 
   // Auth state
   const [authUser, setAuthUser] = useState(null)
@@ -241,7 +242,7 @@ function App() {
         )
 
       case 'compare':
-        return <ComparisonView />
+        return <ComparisonView params={params} />
 
       case 'roster':
         if (!authUser) {
@@ -257,6 +258,23 @@ function App() {
         return (
           <section className="roster-section">
             <RosterView onPlayerSelect={handlePlayerSelect} navigate={navigate} />
+          </section>
+        )
+
+      case 'waiver':
+        if (!authUser) {
+          return (
+            <section className="auth-gate-section">
+              <AuthPage
+                onAuthenticated={handleAuthenticated}
+                onCancel={() => navigate('')}
+              />
+            </section>
+          )
+        }
+        return (
+          <section className="waiver-section">
+            <WaiverWire onPlayerSelect={handlePlayerSelect} navigate={navigate} />
           </section>
         )
 

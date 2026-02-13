@@ -1,0 +1,367 @@
+/* ===== Waiver Wire View ===== */
+.waiver-view {
+  padding: 0;
+}
+
+.waiver-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 0 20px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.waiver-title-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.waiver-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.waiver-icon {
+  font-size: 1.8rem;
+}
+
+.waiver-title h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.waiver-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ===== Position Filters ===== */
+.waiver-position-filters {
+  display: flex;
+  gap: 4px;
+  margin: 0 20px 16px;
+  padding: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.position-filter-tab {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  padding: 7px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.position-filter-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.position-filter-tab.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+}
+
+.position-filter-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Waiver Controls ===== */
+.waiver-controls {
+  margin: 0 20px 16px;
+}
+
+/* ===== Summary ===== */
+.waiver-summary {
+  margin: 0 20px 16px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ===== Player Grid ===== */
+.waiver-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  padding: 1px;
+  margin: 0 20px 20px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.waiver-player-card {
+  background: var(--bg-card);
+  padding: 16px;
+  transition: background-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.waiver-player-card:hover {
+  background: var(--bg-hover);
+}
+
+.waiver-player-card.clickable:hover {
+  border-color: var(--accent-light, #818cf8);
+  transform: translateY(-1px);
+  transition: background-color 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+/* ===== Player Header ===== */
+.waiver-player-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.waiver-player-team {
+  color: var(--text-muted);
+}
+
+.waiver-player-name {
+  font-family: var(--font-sans);
+  font-size: 1.04rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+/* ===== Badge Row ===== */
+.waiver-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.waiver-recommendation-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  letter-spacing: 0.04em;
+}
+
+.waiver-recommendation-badge.grab {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.waiver-recommendation-badge.watch {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.waiver-recommendation-badge.skip {
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.waiver-owned-pill {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-medium);
+  text-transform: uppercase;
+}
+
+.waiver-score {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ===== Reasoning ===== */
+.waiver-reasoning {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+/* ===== Analytics ===== */
+.waiver-analytics {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.01);
+  padding: 8px;
+  display: grid;
+  gap: 7px;
+}
+
+.waiver-projection-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+}
+
+.waiver-projection-label {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.waiver-projection-value {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.waiver-flags-inline {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.waiver-flag-chip {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* ===== Loading / Error / Empty States ===== */
+.waiver-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.waiver-error {
+  color: var(--danger);
+}
+
+.waiver-empty-state {
+  padding: 28px 20px 32px;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.waiver-retry-button {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.waiver-retry-button:hover {
+  background: var(--bg-hover);
+}
+
+.waiver-inline-error {
+  margin: 0 20px 16px;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.12);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #fca5a5;
+  font-size: 0.78rem;
+}
+
+.waiver-inline-error button {
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #fecaca;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 900px) {
+  .waiver-header {
+    padding: 0 14px 14px;
+    gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .waiver-position-filters {
+    margin: 0 14px 14px;
+  }
+
+  .waiver-controls {
+    margin: 0 14px 14px;
+  }
+
+  .waiver-summary {
+    margin: 0 14px 14px;
+  }
+
+  .waiver-grid {
+    margin: 0 14px 14px;
+    grid-template-columns: 1fr;
+  }
+
+  .waiver-inline-error {
+    margin: 0 14px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

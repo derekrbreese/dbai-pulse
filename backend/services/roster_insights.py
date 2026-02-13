@@ -19,6 +19,8 @@ from models.schemas import (
     RosterInsightPlayer,
     RosterInsightsResponse,
     TeamFeedbackPreferences,
+    WaiverPlayerInsight,
+    WaiverWireResponse,
     YahooTeamSummary,
 )
 from services.enhancement import get_enhancement_engine
@@ -821,6 +823,129 @@ class RosterInsightsService:
             summary=summary,
             cached=False,
             imported_at=imported_at,
+        )
+
+
+    @staticmethod
+    def _build_waiver_reasoning(
+        enhanced_player: Optional[EnhancedPlayer],
+        recommendation: str,
+        score: Optional[float],
+        percent_owned: Optional[float],
+    ) -> str:
+        """Build short reasoning string for waiver wire recommendations."""
+        if not enhanced_player:
+            return "Could not match to Sleeper data for analysis."
+
+        parts = []
+        proj = (
+            enhanced_player.projection.adjusted_projection
+            if enhanced_player.projection.adjusted_projection is not None
+            else enhanced_player.projection.sleeper_projection
+        )
+        if proj > 0:
+            parts.append(f"Projected {proj:.1f} pts")
+
+        flags = enhanced_player.performance_flags
+        if flags:
+            top = flags[0].replace("_", " ").title()
+            parts.append(top)
+
+        recent = enhanced_player.recent_performance
+        if recent and recent.weeks_analyzed > 0:
+            parts.append(f"L{recent.weeks_analyzed}W avg {recent.avg_points} pts")
+
+        if percent_owned is not None:
+            parts.append(f"{percent_owned:.0f}% owned")
+
+        return " | ".join(parts) if parts else f"{recommendation} — score {score or 0:.1f}"
+
+    async def generate_waiver_insights(
+        self,
+        yahoo_service: Any,
+        user_id: str,
+        league_key: str,
+        league_name: Optional[str],
+        preferences: TeamFeedbackPreferences,
+        position: Optional[str] = None,
+        count: int = 50,
+    ) -> WaiverWireResponse:
+        """Build waiver wire intelligence for free agents in a Yahoo league."""
+        raw_players = await yahoo_service.get_league_players(
+            league_key, position=position, count=count
+        )
+
+        index = await self._build_player_index()
+        players: List[WaiverPlayerInsight] = []
+        matched_count = 0
+
+        for yahoo_player in raw_players:
+            sleeper_id, confidence, match_reason = await self.match_player(
+                yahoo_player=yahoo_player,
+                index=index,
+                user_id=user_id,
+            )
+
+            enhanced_player = None
+            if sleeper_id:
+                enhanced_player = await self.build_enhanced_player(sleeper_id, preferences.scoring)
+                if enhanced_player:
+                    matched_count += 1
+
+            score = self._calculate_feedback_score(
+                enhanced_player=enhanced_player,
+                risk=preferences.risk,
+                focus=preferences.focus,
+                status=yahoo_player.get("status"),
+                injury_status=None,
+            )
+
+            if score is not None and score >= 7.0:
+                recommendation = "GRAB"
+            elif score is not None and score >= 4.0:
+                recommendation = "WATCH"
+            else:
+                recommendation = "SKIP"
+
+            percent_owned = yahoo_player.get("percent_owned")
+            reasoning = self._build_waiver_reasoning(
+                enhanced_player, recommendation, score, percent_owned,
+            )
+
+            players.append(
+                WaiverPlayerInsight(
+                    yahoo_player_key=yahoo_player.get("player_key") or yahoo_player.get("player_id") or "",
+                    name=yahoo_player.get("name", "Unknown"),
+                    position=yahoo_player.get("position"),
+                    team=yahoo_player.get("team"),
+                    percent_owned=percent_owned,
+                    matched_sleeper_id=sleeper_id,
+                    enhanced_player=enhanced_player,
+                    recommendation=recommendation,
+                    reasoning=reasoning,
+                    score=score,
+                )
+            )
+
+        players.sort(key=lambda p: p.score if p.score is not None else -1, reverse=True)
+
+        grab_count = sum(1 for p in players if p.recommendation == "GRAB")
+        summary = (
+            f"Scanned {len(raw_players)} free agents, matched {matched_count} to Sleeper. "
+            f"{grab_count} recommended pickups."
+        )
+
+        return WaiverWireResponse(
+            league_key=league_key,
+            league_name=league_name,
+            preferences=preferences,
+            players=players,
+            matched_count=matched_count,
+            total_scanned=len(raw_players),
+            position_filter=position,
+            summary=summary,
+            cached=False,
+            generated_at=int(time.time()),
         )
 
 

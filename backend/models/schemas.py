@@ -213,6 +213,36 @@ class RosterInsightsResponse(BaseModel):
     imported_at: int
 
 
+class WaiverPlayerInsight(BaseModel):
+    """Single player row in waiver wire results."""
+
+    yahoo_player_key: str
+    name: str
+    position: Optional[str] = None
+    team: Optional[str] = None
+    percent_owned: Optional[float] = None
+    matched_sleeper_id: Optional[str] = None
+    enhanced_player: Optional[EnhancedPlayer] = None
+    recommendation: str  # "GRAB", "WATCH", "SKIP"
+    reasoning: str
+    score: Optional[float] = None
+
+
+class WaiverWireResponse(BaseModel):
+    """Full waiver wire intelligence payload."""
+
+    league_key: str
+    league_name: Optional[str] = None
+    preferences: TeamFeedbackPreferences
+    players: List[WaiverPlayerInsight] = Field(default_factory=list)
+    matched_count: int
+    total_scanned: int
+    position_filter: Optional[str] = None
+    summary: str
+    cached: bool = False
+    generated_at: int
+
+
 class AuthUser(BaseModel):
     """Authenticated application user."""
 
