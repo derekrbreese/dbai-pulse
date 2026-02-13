@@ -626,7 +626,7 @@ class YahooFantasyService:
         self,
         league_key: str,
         position: Optional[str] = None,
-        count: int = 50,
+        count: int = 100,
     ) -> List[Dict[str, Any]]:
         """
         Fetch available (free agent) players from a Yahoo league.

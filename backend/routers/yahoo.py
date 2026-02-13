@@ -312,7 +312,7 @@ async def get_waiver_wire(
     scoring: Literal["ppr", "half_ppr", "std"] = Query("ppr"),
     risk: Literal["conservative", "balanced", "aggressive"] = Query("balanced"),
     focus: Literal["floor", "upside", "ceiling"] = Query("upside"),
-    count: int = Query(50, ge=1, le=100),
+    count: int = Query(100, ge=1, le=200),
 ):
     """
     Get waiver wire intelligence for available free agents in a Yahoo league.
