@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts'
 import { apiFetch } from '../api/client'
 import './PerformanceChart.css'
@@ -57,6 +57,13 @@ function PerformanceChart({ playerId, playerName: _playerName }) {
         )
     }
 
+    const avgDelta = useMemo(() => {
+        const validWeeks = chartData.filter(w => w.actual_points != null && w.projected_points > 0)
+        if (!validWeeks.length) return null
+        const total = validWeeks.reduce((sum, w) => sum + (w.actual_points - w.projected_points), 0)
+        return total / validWeeks.length
+    }, [chartData])
+
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
@@ -83,6 +90,14 @@ function PerformanceChart({ playerId, playerName: _playerName }) {
             <div className="chart-header">
                 <h3 className="chart-title">📈 Performance Trend</h3>
                 <p className="chart-subtitle">Last {chartData.length} Weeks</p>
+                {avgDelta !== null && (
+                    <p
+                        className="chart-delta-summary"
+                        style={{ color: avgDelta >= 0 ? 'var(--success)' : 'var(--danger)' }}
+                    >
+                        Avg {avgDelta >= 0 ? '+' : ''}{avgDelta.toFixed(1)} pts {avgDelta >= 0 ? 'above' : 'below'} projection
+                    </p>
+                )}
             </div>
             <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>

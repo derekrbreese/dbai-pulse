@@ -88,6 +88,131 @@
   cursor: not-allowed;
 }
 
+/* ===== Recommendation Filters ===== */
+.waiver-recommendation-filters {
+  display: flex;
+  gap: 4px;
+  margin: 0 20px 16px;
+  padding: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.recommendation-filter-tab {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  padding: 7px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recommendation-filter-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.recommendation-filter-tab.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+}
+
+.recommendation-filter-tab.active.rec-grab {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.recommendation-filter-tab.active.rec-watch {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.recommendation-filter-tab.active.rec-skip {
+  color: var(--text-secondary);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.rec-filter-count {
+  font-size: 0.6rem;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+/* ===== Tiered List ===== */
+.waiver-tiered-list {
+  margin: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.waiver-tier-section {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.waiver-tier-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: none;
+  border-left: 3px solid var(--tier-accent, var(--border-medium));
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.waiver-tier-header:hover {
+  background: var(--bg-hover);
+}
+
+.waiver-tier-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.waiver-tier-chevron {
+  font-size: 0.6rem;
+  transition: transform 0.2s;
+  color: var(--text-muted);
+}
+
+.waiver-tier-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.waiver-tier-section .waiver-grid {
+  margin: 0;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+}
+
 /* ===== Waiver Controls ===== */
 .waiver-controls {
   margin: 0 20px 16px;
@@ -357,6 +482,18 @@
   .waiver-grid {
     margin: 0 14px 14px;
     grid-template-columns: 1fr;
+  }
+
+  .waiver-recommendation-filters {
+    margin: 0 14px 14px;
+  }
+
+  .waiver-tiered-list {
+    margin: 0 14px 14px;
+  }
+
+  .waiver-tier-section .waiver-grid {
+    margin: 0;
   }
 
   .waiver-inline-error {

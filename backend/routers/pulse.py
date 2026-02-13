@@ -85,7 +85,6 @@ async def get_player_pulse(request: Request, sleeper_id: str):
         youtube_context = ""
 
     # Use Gemini to synthesize everything (including YouTube transcripts)
-    all_sources = mentioned_sources + not_mentioned_sources
     adjusted_projection = enhanced_player.projection.adjusted_projection
     gemini_service = get_gemini_service()
     gemini_result = await gemini_service.synthesize_player_analysis(
@@ -102,6 +101,7 @@ async def get_player_pulse(request: Request, sleeper_id: str):
         adjusted_projection=adjusted_projection,
         team=player.team,
         bye_week=player.bye_week,
+        on_bye=bool(player.bye_week and week and player.bye_week == week),
     )
 
     gemini_analysis = GeminiAnalysis(**gemini_result)

@@ -159,8 +159,8 @@ class GeminiSynthesis:
 
     @staticmethod
     def _is_offseason(season_type: Optional[str]) -> bool:
-        """Return True when the NFL is not in the regular season."""
-        return season_type not in (None, 'regular')
+        """Return True when the NFL is not in an active season (regular or playoffs)."""
+        return season_type in (None, 'off', '', 'pre')
 
     @staticmethod
     def _sanitize_external_text(text: str) -> str:
@@ -171,9 +171,12 @@ class GeminiSynthesis:
             r"|system\s*:"
             r"|override\s+instructions"
             r"|forget\s+(all\s+)?previous"
-            r"|new\s+instructions\s*:"
+            r"|new\s+instructions\s*:?"
             r"|act\s+as\s+if"
-            r"|pretend\s+you\s+are)",
+            r"|pretend\s+you\s+are"
+            r"|respond\s+only\s+with"
+            r"|output\s+format\s*:?"
+            r"|disregard\s+(prior|previous))",
             re.IGNORECASE,
         )
         sanitized = injection_patterns.sub("[FILTERED]", text)
@@ -313,6 +316,7 @@ Respond ONLY with valid JSON, no markdown formatting."""
         adjusted_projection: Optional[float] = None,
         team: Optional[str] = None,
         bye_week: Optional[int] = None,
+        on_bye: bool = False,
     ) -> Dict:
         """
         Use Gemini 3 Flash with Google Search grounding to synthesize insights.
@@ -415,6 +419,26 @@ Respond ONLY with valid JSON, no markdown formatting."""
             result.setdefault("risk_level", "MODERATE")
             result.setdefault("expert_consensus", "Mixed opinions from experts.")
             result.setdefault("sources_used", ["Google Search", "Sleeper API"])
+
+            # Fix 2: Cap conviction when data is sparse
+            has_youtube = bool(youtube_context and youtube_context.strip())
+            weeks_analyzed = recent_performance.weeks_analyzed if recent_performance else 0
+            if not has_youtube and weeks_analyzed < 3:
+                current_conviction = result.get("conviction", "MIXED")
+                if current_conviction in ("HIGH", "MEDIUM-HIGH"):
+                    logger.warning(
+                        f"Downgrading conviction for {player_name} from {current_conviction} to MIXED "
+                        f"(no YouTube context, only {weeks_analyzed} weeks analyzed)"
+                    )
+                    result["conviction"] = "MIXED"
+
+            # Fix 4: Bye week hard-override
+            if on_bye:
+                result["recommendation"] = "SIT"
+                result["reasoning"] = "Player is on bye this week. " + result.get("reasoning", "")
+                result["risk_level"] = "LOW"
+                result["conviction"] = "HIGH"
+                logger.info(f"Bye week override applied for {player_name}")
 
             logger.info(
                 f"Gemini synthesis complete for {player_name}: {result.get('recommendation')}"
