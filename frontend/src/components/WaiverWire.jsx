@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import PulseButton from './PulseButton'
 import PlayerHeadshot from './PlayerHeadshot'
+import ScoreBreakdown from './ScoreBreakdown'
 import { apiFetch } from '../api/client'
 import './WaiverWire.css'
 
@@ -359,7 +360,6 @@ function WaiverWire({ onPlayerSelect, navigate }) {
               onClick={() => {
                 if (matched && onPlayerSelect) {
                   onPlayerSelect(player.enhanced_player.player)
-                  if (navigate) navigate('search')
                 }
               }}
               style={matched ? { cursor: 'pointer' } : undefined}
@@ -371,6 +371,11 @@ function WaiverWire({ onPlayerSelect, navigate }) {
                   size={32}
                 />
                 <span className="waiver-player-team">{player.team || 'FA'}</span>
+                {player.enhanced_player?.player?.injury_status && (
+                  <span className={`injury-badge ${player.enhanced_player.player.injury_status.toLowerCase().replace('_', '')}`}>
+                    {player.enhanced_player.player.injury_status}
+                  </span>
+                )}
               </div>
 
               <h3 className="waiver-player-name">{player.name}</h3>
@@ -387,7 +392,7 @@ function WaiverWire({ onPlayerSelect, navigate }) {
                 )}
 
                 {player.score != null && (
-                  <div className="waiver-score">Score {player.score.toFixed(1)}</div>
+                  <ScoreBreakdown score={player.score} breakdown={player.score_breakdown} />
                 )}
               </div>
 
@@ -399,6 +404,18 @@ function WaiverWire({ onPlayerSelect, navigate }) {
                     <span className="waiver-projection-label">Projection</span>
                     <span className="waiver-projection-value">{projectionValue?.toFixed(1)} pts</span>
                   </div>
+
+                  {player.enhanced_player.recent_performance?.volatility_score != null && (
+                    <div className="waiver-projection-row">
+                      <span className="waiver-projection-label">Volatility</span>
+                      <span className={`waiver-projection-value ${
+                        player.enhanced_player.recent_performance.volatility_score < 0.25 ? 'text-success' :
+                        player.enhanced_player.recent_performance.volatility_score < 0.5 ? 'text-warning' : 'text-danger'
+                      }`}>
+                        {(player.enhanced_player.recent_performance.volatility_score * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  )}
 
                   {player.enhanced_player.performance_flags?.length > 0 && (
                     <div className="waiver-flags-inline">

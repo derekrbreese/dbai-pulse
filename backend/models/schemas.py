@@ -15,6 +15,7 @@ class PlayerBase(BaseModel):
     team: Optional[str] = None
     bye_week: Optional[int] = None
     espn_id: Optional[str] = None
+    injury_status: Optional[str] = None
 
 
 class PlayerProjection(BaseModel):
@@ -31,7 +32,11 @@ class RecentPerformance(BaseModel):
     avg_points: float
     total_points: float
     trend: str  # "improving", "declining", "stable"
+    trend_delta: Optional[float] = None  # latest week vs avg, e.g. +3.2
     weekly_points: List[float] = []
+    volatility_score: Optional[float] = None  # coefficient of variation, 0.0-1.0
+    ceiling_value: Optional[float] = None  # best week score
+    floor_value: Optional[float] = None  # worst week score
 
 
 class EnhancedPlayer(BaseModel):
@@ -78,6 +83,9 @@ class GeminiAnalysis(BaseModel):
     risk_level: str  # "LOW", "MODERATE", "HIGH"
     expert_consensus: str
     sources_used: List[str] = []  # Sources from Google Search grounding
+    ecr_rank: Optional[int] = None  # FantasyPros ECR overall rank
+    ecr_best: Optional[int] = None  # Best expert rank
+    ecr_worst: Optional[int] = None  # Worst expert rank
 
 
 class PulseResult(BaseModel):
@@ -183,6 +191,18 @@ class TeamFeedbackPreferencesUpdate(BaseModel):
     focus: Literal["floor", "upside", "ceiling"] = "upside"
 
 
+class FeedbackScoreBreakdown(BaseModel):
+    """Decomposed score showing how each factor contributed."""
+
+    base: float  # raw projection score
+    recent_adj: float = 0.0  # L3W performance adjustment
+    flag_bonus: float = 0.0  # performance flag bonuses
+    risk_adj: float = 0.0  # risk preference adjustment
+    focus_adj: float = 0.0  # focus preference adjustment
+    injury_penalty: float = 0.0  # injury status deduction
+    final: float  # final composite score
+
+
 class RosterInsightPlayer(BaseModel):
     """Roster player row including Yahoo-to-Sleeper matching and feedback."""
 
@@ -198,6 +218,7 @@ class RosterInsightPlayer(BaseModel):
     enhanced_player: Optional[EnhancedPlayer] = None
     custom_feedback: str
     feedback_score: Optional[float] = None
+    score_breakdown: Optional[FeedbackScoreBreakdown] = None
 
 
 class RosterInsightsResponse(BaseModel):
@@ -226,6 +247,7 @@ class WaiverPlayerInsight(BaseModel):
     recommendation: str  # "GRAB", "WATCH", "SKIP"
     reasoning: str
     score: Optional[float] = None
+    score_breakdown: Optional[FeedbackScoreBreakdown] = None
 
 
 class WaiverWireResponse(BaseModel):
@@ -241,6 +263,25 @@ class WaiverWireResponse(BaseModel):
     summary: str
     cached: bool = False
     generated_at: int
+
+
+class CalibrationConvictionStats(BaseModel):
+    """Accuracy stats for a single conviction level."""
+
+    total: int
+    correct: int
+    incorrect: int
+    neutral: int
+    accuracy: Optional[float] = None
+
+
+class CalibrationStats(BaseModel):
+    """Full calibration summary response."""
+
+    total_resolved: int
+    overall_accuracy: Optional[float] = None
+    by_conviction: dict = {}
+    by_recommendation: dict = {}
 
 
 class AuthUser(BaseModel):

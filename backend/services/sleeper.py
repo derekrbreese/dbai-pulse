@@ -7,6 +7,7 @@ Free, no auth required.
 
 import asyncio
 import logging
+import statistics
 from time import perf_counter
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -94,6 +95,7 @@ class SleeperClient:
             'team': player.get('team'),
             'bye_week': SleeperClient._coerce_int(player.get('bye_week')),
             'espn_id': str(player.get('espn_id')) if player.get('espn_id') else None,
+            'injury_status': player.get('injury_status'),
         }
 
         if include_search_rank:
@@ -588,12 +590,31 @@ class SleeperClient:
                 elif change < -0.25:
                     trend = 'declining'
 
+        # Trend delta: latest week vs average
+        trend_delta = None
+        if len(weekly_points) >= 2:
+            trend_delta = round(weekly_points[0]['points'] - avg, 1)
+
+        # Volatility (coefficient of variation), ceiling, floor
+        pts_list = [w['points'] for w in weekly_points]
+        ceiling_value = round(max(pts_list), 1)
+        floor_value = round(min(pts_list), 1)
+
+        volatility_score = None
+        if len(pts_list) >= 2 and avg > 0:
+            stdev = statistics.stdev(pts_list)
+            volatility_score = round(min(stdev / avg, 1.0), 2)
+
         return {
             'weeks_analyzed': len(weekly_points),
             'avg_points': round(avg, 1),
             'total_points': round(total, 1),
             'trend': trend,
-            'weekly_points': [w['points'] for w in weekly_points],
+            'trend_delta': trend_delta,
+            'weekly_points': pts_list,
+            'volatility_score': volatility_score,
+            'ceiling_value': ceiling_value,
+            'floor_value': floor_value,
         }
 
     async def get_recent_projection_avg(

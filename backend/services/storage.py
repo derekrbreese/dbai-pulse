@@ -117,6 +117,34 @@ class SQLiteStorage:
                 """
             )
 
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS prediction_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sleeper_id TEXT NOT NULL,
+                    player_name TEXT NOT NULL,
+                    position TEXT,
+                    season INTEGER NOT NULL,
+                    week INTEGER NOT NULL,
+                    recommendation TEXT NOT NULL,
+                    conviction TEXT NOT NULL,
+                    risk_level TEXT,
+                    projected_points REAL,
+                    actual_points REAL,
+                    outcome TEXT,
+                    created_at INTEGER NOT NULL,
+                    resolved_at INTEGER
+                )
+                """
+            )
+
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_prediction_log_unique
+                ON prediction_log (sleeper_id, season, week)
+                """
+            )
+
     def _connect(self) -> sqlite3.Connection:
         """Open a sqlite connection with row dictionaries enabled."""
         connection = sqlite3.connect(str(self.db_path), timeout=30, check_same_thread=False)
@@ -357,6 +385,95 @@ class SQLiteStorage:
         with self._write_lock:
             with self._connect() as conn:
                 conn.execute(query, tuple(params))
+
+    def log_prediction(
+        self,
+        sleeper_id: str,
+        player_name: str,
+        position: Optional[str],
+        season: int,
+        week: int,
+        recommendation: str,
+        conviction: str,
+        risk_level: Optional[str],
+        projected_points: Optional[float],
+    ) -> None:
+        """Log a Pulse prediction. Duplicates are silently ignored."""
+        now = int(time.time())
+        with self._write_lock:
+            with self._connect() as conn:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO prediction_log (
+                        sleeper_id, player_name, position, season, week,
+                        recommendation, conviction, risk_level, projected_points,
+                        created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        sleeper_id, player_name, position, season, week,
+                        recommendation, conviction, risk_level, projected_points,
+                        now,
+                    ),
+                )
+
+    def get_unresolved_predictions(
+        self, season: Optional[int] = None, week: Optional[int] = None
+    ) -> list[Dict[str, Any]]:
+        """Fetch predictions that have not been resolved yet."""
+        query = "SELECT * FROM prediction_log WHERE outcome IS NULL"
+        params: list[Any] = []
+
+        if season is not None:
+            query += " AND season = ?"
+            params.append(season)
+        if week is not None:
+            query += " AND week = ?"
+            params.append(week)
+
+        with self._connect() as conn:
+            rows = conn.execute(query, tuple(params)).fetchall()
+        return [dict(r) for r in rows]
+
+    def resolve_prediction(
+        self, prediction_id: int, actual_points: float, outcome: str
+    ) -> None:
+        """Mark a prediction as resolved with actual results."""
+        now = int(time.time())
+        with self._write_lock:
+            with self._connect() as conn:
+                conn.execute(
+                    """
+                    UPDATE prediction_log
+                    SET actual_points = ?, outcome = ?, resolved_at = ?
+                    WHERE id = ?
+                    """,
+                    (actual_points, outcome, now, prediction_id),
+                )
+
+    def get_calibration_stats(self) -> list[Dict[str, Any]]:
+        """Return resolved predictions for calibration analysis."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM prediction_log
+                WHERE outcome IS NOT NULL
+                ORDER BY season DESC, week DESC
+                """
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_all_predictions(self) -> list[Dict[str, Any]]:
+        """Return all predictions for the calibration dashboard."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM prediction_log
+                ORDER BY season DESC, week DESC, created_at DESC
+                """
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     @staticmethod
     def _mapping_identities(

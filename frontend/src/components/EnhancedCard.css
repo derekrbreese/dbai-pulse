@@ -282,3 +282,66 @@
   font-size: 0.65rem;
   padding: 2px 6px;
 }
+
+/* Trend delta */
+.trend-delta {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.trend-delta.positive {
+  color: var(--success);
+}
+
+.trend-delta.negative {
+  color: var(--danger);
+}
+
+/* Volatility bar */
+.volatility-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.volatility-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.volatility-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.volatility-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.volatility-bar-fill.low { background: var(--success); }
+.volatility-bar-fill.medium { background: #f59e0b; }
+.volatility-bar-fill.high { background: var(--danger); }
+
+.volatility-value {
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 28px;
+  text-align: right;
+}
+
+.volatility-value.low { color: var(--success); }
+.volatility-value.medium { color: #f59e0b; }
+.volatility-value.high { color: var(--danger); }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import PulseButton from './PulseButton'
 import PlayerHeadshot from './PlayerHeadshot'
+import ScoreBreakdown from './ScoreBreakdown'
 import { apiFetch } from '../api/client'
 import './RosterView.css'
 
@@ -424,7 +425,6 @@ function RosterView({ onPlayerSelect, navigate }) {
                 }
                 if (onPlayerSelect) {
                   onPlayerSelect(player.enhanced_player.player)
-                  if (navigate) navigate('search')
                 }
               }}
               style={matched ? { cursor: 'pointer' } : undefined}
@@ -446,8 +446,8 @@ function RosterView({ onPlayerSelect, navigate }) {
                   {matched ? 'Matched to Sleeper' : 'Unmatched'}
                 </div>
 
-                {player.feedback_score !== null && player.feedback_score !== undefined && (
-                  <div className="roster-feedback-score">Score {player.feedback_score.toFixed(1)}</div>
+                {player.feedback_score != null && (
+                  <ScoreBreakdown score={player.feedback_score} breakdown={player.score_breakdown} />
                 )}
               </div>
 
@@ -480,7 +480,11 @@ function RosterView({ onPlayerSelect, navigate }) {
               {(player.status || player.injury_status) && (
                 <div className="roster-chip-row">
                   {player.status && <span className="roster-status-tag">{player.status}</span>}
-                  {player.injury_status && <span className="roster-injury-tag">{player.injury_status}</span>}
+                  {player.injury_status && (
+                    <span className={`injury-badge ${player.injury_status.toLowerCase().replace('_', '')}`}>
+                      {player.injury_status}
+                    </span>
+                  )}
                 </div>
               )}
 

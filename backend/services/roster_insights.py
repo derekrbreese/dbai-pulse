@@ -611,10 +611,10 @@ class RosterInsightsService:
         focus: str,
         status: Optional[str],
         injury_status: Optional[str],
-    ) -> Optional[float]:
-        """Calculate customization-aware feedback score."""
+    ) -> Tuple[Optional[float], Optional[dict]]:
+        """Calculate customization-aware feedback score with breakdown."""
         if not enhanced_player:
-            return None
+            return None, None
 
         projection = (
             enhanced_player.projection.adjusted_projection
@@ -624,62 +624,80 @@ class RosterInsightsService:
         flags = set(enhanced_player.performance_flags)
         recent = enhanced_player.recent_performance
 
-        score = float(projection)
+        base = float(projection)
+        recent_adj = 0.0
         if recent:
-            score += (recent.avg_points - projection) * 0.5
+            recent_adj = round((recent.avg_points - projection) * 0.5, 1)
 
+        flag_bonus = 0.0
         if "BREAKOUT_CANDIDATE" in flags:
-            score += 2.0
+            flag_bonus += 2.0
         if "TRENDING_UP" in flags:
-            score += 1.2
+            flag_bonus += 1.2
         if "HIGH_CEILING" in flags:
-            score += 1.4
+            flag_bonus += 1.4
         if "CONSISTENT" in flags:
-            score += 0.8
+            flag_bonus += 0.8
         if "UNDERPERFORMING" in flags:
-            score -= 1.0
+            flag_bonus -= 1.0
         if "DECLINING_ROLE" in flags:
-            score -= 2.0
+            flag_bonus -= 2.0
         if "BOOM_BUST" in flags:
-            score -= 0.5
+            flag_bonus -= 0.5
 
+        risk_adj = 0.0
         if risk == "conservative":
             if "BOOM_BUST" in flags:
-                score -= 1.5
+                risk_adj -= 1.5
             if "CONSISTENT" in flags:
-                score += 1.0
+                risk_adj += 1.0
             if injury_status:
-                score -= 1.5
+                risk_adj -= 1.5
         elif risk == "aggressive":
             if "BREAKOUT_CANDIDATE" in flags:
-                score += 1.2
+                risk_adj += 1.2
             if "HIGH_CEILING" in flags:
-                score += 1.2
+                risk_adj += 1.2
             if "CONSISTENT" in flags:
-                score -= 0.4
+                risk_adj -= 0.4
 
+        focus_adj = 0.0
         if focus == "floor":
             if "CONSISTENT" in flags:
-                score += 1.5
+                focus_adj += 1.5
             if "BOOM_BUST" in flags:
-                score -= 1.5
+                focus_adj -= 1.5
         elif focus == "upside":
             if "TRENDING_UP" in flags:
-                score += 1.2
+                focus_adj += 1.2
             if "BREAKOUT_CANDIDATE" in flags:
-                score += 1.0
+                focus_adj += 1.0
         elif focus == "ceiling":
             if "HIGH_CEILING" in flags:
-                score += 2.0
+                focus_adj += 2.0
             if recent and recent.weekly_points:
-                score += max(recent.weekly_points) * 0.05
+                focus_adj += max(recent.weekly_points) * 0.05
 
+        injury_penalty = 0.0
         if status and status.strip().upper() in {"OUT", "DOUBTFUL", "SUSP"}:
-            score -= 3.0
+            injury_penalty -= 3.0
         if injury_status:
-            score -= 0.8
+            injury_penalty -= 0.8
 
-        return round(max(score, 0.0), 1)
+        raw = base + recent_adj + flag_bonus + risk_adj + focus_adj + injury_penalty
+        final = round(max(raw, 0.0), 1)
+
+        breakdown = {
+            "base": round(base, 1),
+            "recent_adj": round(recent_adj, 1),
+            "flag_bonus": round(flag_bonus, 1),
+            "risk_adj": round(risk_adj, 1),
+            "focus_adj": round(focus_adj, 1),
+            "injury_penalty": round(injury_penalty, 1),
+            "final": final,
+        }
+
+        return final, breakdown
 
     @staticmethod
     def _build_custom_feedback(
@@ -765,7 +783,7 @@ class RosterInsightsService:
                         match_reason=match_reason,
                     )
 
-            score = self._calculate_feedback_score(
+            score, breakdown = self._calculate_feedback_score(
                 enhanced_player=enhanced_player,
                 risk=preferences.risk,
                 focus=preferences.focus,
@@ -799,6 +817,7 @@ class RosterInsightsService:
                     enhanced_player=enhanced_player,
                     custom_feedback=feedback,
                     feedback_score=score,
+                    score_breakdown=breakdown,
                 )
             )
 
@@ -892,12 +911,12 @@ class RosterInsightsService:
                 if enhanced_player:
                     matched_count += 1
 
-            score = self._calculate_feedback_score(
+            score, breakdown = self._calculate_feedback_score(
                 enhanced_player=enhanced_player,
                 risk=preferences.risk,
                 focus=preferences.focus,
                 status=yahoo_player.get("status"),
-                injury_status=None,
+                injury_status=yahoo_player.get("injury_status"),
             )
 
             if score is not None and score >= 7.0:
@@ -924,6 +943,7 @@ class RosterInsightsService:
                     recommendation=recommendation,
                     reasoning=reasoning,
                     score=score,
+                    score_breakdown=breakdown,
                 )
             )
 

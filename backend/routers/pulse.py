@@ -18,6 +18,7 @@ from models.schemas import (
 )
 from services.player_enrichment import enrich_player
 from services.season_context import resolve_season_context
+from services.storage import get_storage
 from services.youtube import get_youtube_service
 from services.gemini_synthesis import get_gemini_service
 
@@ -105,6 +106,23 @@ async def get_player_pulse(request: Request, sleeper_id: str):
     )
 
     gemini_analysis = GeminiAnalysis(**gemini_result)
+
+    # Log prediction for calibration tracking (fire-and-forget, never breaks Pulse)
+    try:
+        storage = get_storage()
+        storage.log_prediction(
+            sleeper_id=sleeper_id,
+            player_name=player.name,
+            position=player.position,
+            season=season,
+            week=week,
+            recommendation=gemini_analysis.recommendation,
+            conviction=gemini_analysis.conviction,
+            risk_level=gemini_analysis.risk_level,
+            projected_points=projection_value,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log prediction for calibration: {e}")
 
     # Build expert takes using Gemini-generated summaries instead of raw transcript
     source_summaries = gemini_result.get("expert_source_summaries", {})
