@@ -32,6 +32,13 @@ function PerformanceChart({ playerId, playerName: _playerName }) {
         fetchTrends()
     }, [playerId])
 
+    const avgDelta = useMemo(() => {
+        const validWeeks = chartData.filter(w => w.actual_points != null && w.projected_points > 0)
+        if (!validWeeks.length) return null
+        const total = validWeeks.reduce((sum, w) => sum + (w.actual_points - w.projected_points), 0)
+        return total / validWeeks.length
+    }, [chartData])
+
     if (loading) {
         return (
             <div className="chart-loading">
@@ -44,7 +51,7 @@ function PerformanceChart({ playerId, playerName: _playerName }) {
     if (error) {
         return (
             <div className="chart-error">
-                ⚠️ Unable to load chart
+                Unable to load chart
             </div>
         )
     }
@@ -52,17 +59,10 @@ function PerformanceChart({ playerId, playerName: _playerName }) {
     if (!chartData || chartData.length === 0) {
         return (
             <div className="chart-empty">
-                📊 No recent performance data available
+                No recent performance data available
             </div>
         )
     }
-
-    const avgDelta = useMemo(() => {
-        const validWeeks = chartData.filter(w => w.actual_points != null && w.projected_points > 0)
-        if (!validWeeks.length) return null
-        const total = validWeeks.reduce((sum, w) => sum + (w.actual_points - w.projected_points), 0)
-        return total / validWeeks.length
-    }, [chartData])
 
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {

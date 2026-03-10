@@ -52,9 +52,6 @@ function FlagsBrowser({ onPlayerSelect, navigate }) {
         if (onPlayerSelect) {
             onPlayerSelect(playerData.player)
         }
-        if (navigate) {
-            navigate('search')
-        }
     }
 
     return (
@@ -123,6 +120,11 @@ function FlagsBrowser({ onPlayerSelect, navigate }) {
                                 <div className="player-card-header">
                                     <PlayerHeadshot espnId={p.player.espn_id} position={p.player.position} size={24} />
                                     <span className="flags-player-team">{p.player.team || 'FA'}</span>
+                                    {p.player.injury_status && (
+                                        <span className={`injury-badge ${p.player.injury_status.toLowerCase().replace('_', '')}`}>
+                                            {p.player.injury_status}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flags-player-name">{p.player.name}</div>
                                 <div className="player-stats">
@@ -136,8 +138,24 @@ function FlagsBrowser({ onPlayerSelect, navigate }) {
                                         <span className="flags-stat-label">Trend</span>
                                         <span className={`flags-stat-value trend-${p.recent_performance?.trend}`}>
                                             {p.recent_performance?.trend || 'stable'}
+                                            {p.recent_performance?.trend_delta != null && (
+                                                <span className={`trend-delta ${p.recent_performance.trend_delta >= 0 ? 'positive' : 'negative'}`}>
+                                                    {' '}{p.recent_performance.trend_delta >= 0 ? '+' : ''}{p.recent_performance.trend_delta}
+                                                </span>
+                                            )}
                                         </span>
                                     </div>
+                                    {p.recent_performance?.volatility_score != null && (
+                                        <div className="stat">
+                                            <span className="flags-stat-label">Volatility</span>
+                                            <span className={`flags-stat-value ${
+                                                p.recent_performance.volatility_score < 0.25 ? 'trend-improving' :
+                                                p.recent_performance.volatility_score < 0.5 ? 'trend-stable' : 'trend-declining'
+                                            }`}>
+                                                {(p.recent_performance.volatility_score * 100).toFixed(0)}%
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="player-flags">
                                     {p.performance_flags?.map(flag => (

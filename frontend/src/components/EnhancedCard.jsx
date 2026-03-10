@@ -41,7 +41,14 @@ function EnhancedCard({ data }) {
                     <PlayerHeadshot espnId={player.espn_id} position={player.position} size={48} />
                     <div className="player-details">
                         <h2 className="player-name">{player.name}</h2>
-                        <span className="player-team">{player.team || 'Free Agent'}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className="player-team">{player.team || 'Free Agent'}</span>
+                            {player.injury_status && (
+                                <span className={`injury-badge ${player.injury_status.toLowerCase().replace('_', '')}`}>
+                                    {player.injury_status}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
                 {on_bye && (
@@ -79,18 +86,43 @@ function EnhancedCard({ data }) {
                                 {recent_performance.trend === 'improving' && '📈'}
                                 {recent_performance.trend === 'declining' && '📉'}
                                 {recent_performance.trend === 'stable' && '➡️'}
+                                {recent_performance.trend_delta != null && (
+                                    <span className={`trend-delta ${recent_performance.trend_delta >= 0 ? 'positive' : 'negative'}`}>
+                                        {recent_performance.trend_delta >= 0 ? '+' : ''}{recent_performance.trend_delta}
+                                    </span>
+                                )}
                             </span>
                             <span className="stat-label">Trend</span>
                         </div>
-                        {recent_performance.weekly_points.length > 0 && (
+                        {recent_performance.floor_value != null && recent_performance.ceiling_value != null && (
                             <div className="stat-item">
                                 <span className="stat-value">
-                                    {Math.max(...recent_performance.weekly_points).toFixed(1)}
+                                    {recent_performance.floor_value}–{recent_performance.ceiling_value}
                                 </span>
-                                <span className="stat-label">Best Week</span>
+                                <span className="stat-label">Floor–Ceiling</span>
                             </div>
                         )}
                     </div>
+                    {recent_performance.volatility_score != null && (
+                        <div className="volatility-row">
+                            <span className="volatility-label">Volatility</span>
+                            <div className="volatility-bar-track">
+                                <div
+                                    className={`volatility-bar-fill ${
+                                        recent_performance.volatility_score < 0.25 ? 'low' :
+                                        recent_performance.volatility_score < 0.5 ? 'medium' : 'high'
+                                    }`}
+                                    style={{ width: `${Math.min(recent_performance.volatility_score * 100, 100)}%` }}
+                                />
+                            </div>
+                            <span className={`volatility-value ${
+                                recent_performance.volatility_score < 0.25 ? 'low' :
+                                recent_performance.volatility_score < 0.5 ? 'medium' : 'high'
+                            }`}>
+                                {(recent_performance.volatility_score * 100).toFixed(0)}%
+                            </span>
+                        </div>
+                    )}
                 </div>
             )}
 

@@ -15,6 +15,7 @@ from models.schemas import (
     PlayerProjection,
     RecentPerformance,
 )
+from services.calibration import get_calibration_summary, resolve_predictions
 from services.enhancement import get_enhancement_engine
 from services.player_enrichment import resolve_projection
 from services.sleeper import get_sleeper_client
@@ -35,6 +36,23 @@ VALID_FLAGS = [
 POOL_SIZE_MIN = 500
 POOL_SIZE_MAX = 2000
 POOL_SIZE_MULTIPLIER = 20
+
+
+@router.get("/calibration")
+async def get_calibration():
+    """
+    Get prediction calibration stats — how accurate are Pulse recommendations?
+
+    Optionally triggers a backfill of unresolved predictions against actual stats.
+    """
+    # Try to resolve any pending predictions first
+    try:
+        await resolve_predictions()
+    except Exception as e:
+        logger.warning(f"Calibration backfill failed: {e}")
+
+    summary = get_calibration_summary()
+    return summary
 
 
 @router.get("/by-flag/{flag}")

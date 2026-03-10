@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './PulseModal.css'
 
 function PulseModal({ data, playerName: _playerName, onClose }) {
     const { gemini_analysis, player } = data
     const isOffseason = data.season_type && data.season_type !== 'regular'
     const modalRef = useRef(null)
+    const [sourcesExpanded, setSourcesExpanded] = useState(false)
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -90,6 +91,11 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
                         {player.player.position}
                     </span>
                     <span className="team-badge">{player.player.team}</span>
+                    {player.player.injury_status && (
+                        <span className={`injury-badge ${player.player.injury_status.toLowerCase().replace('_', '')}`}>
+                            {player.player.injury_status}
+                        </span>
+                    )}
                 </div>
 
                 {/* Recommendation Card */}
@@ -121,6 +127,18 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
                             </span>
                         </div>
                     </div>
+
+                    {gemini_analysis.ecr_rank != null && (
+                        <div className="ecr-row">
+                            <span className="ecr-label">ECR</span>
+                            <span className="ecr-rank">#{gemini_analysis.ecr_rank}</span>
+                            {(gemini_analysis.ecr_best != null || gemini_analysis.ecr_worst != null) && (
+                                <span className="ecr-range">
+                                    (#{gemini_analysis.ecr_best ?? '?'} – #{gemini_analysis.ecr_worst ?? '?'})
+                                </span>
+                            )}
+                        </div>
+                    )}
 
                     <div className="reasoning-section">
                         <div className="reasoning-label">💭 Analysis</div>
@@ -174,33 +192,61 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
 
                 {/* Data Sources / Citations */}
                 <div className="pulse-citations">
-                    <h4 className="section-title">📚 Data Sources</h4>
-                    <ul className="citations-list">
-                        <li>
-                            <span className="citation-source">Google Search</span>
-                            <span className="citation-detail">Live web search for current news & expert opinions</span>
-                        </li>
-                        <li>
-                            <span className="citation-source">Sleeper API</span>
-                            <span className="citation-detail">
-                                {isOffseason
-                                    ? `Player projections & stats, ${data.season || 2025} NFL season`
-                                    : `Player projections & stats, Week ${data.week || '?'}, ${data.season || 2025} NFL season`}
-                            </span>
-                        </li>
-                        {gemini_analysis.sources_used && gemini_analysis.sources_used.length > 0 && (
-                            <li>
-                                <span className="citation-source">Sources Found</span>
+                    <button
+                        className="sources-toggle"
+                        onClick={() => setSourcesExpanded(!sourcesExpanded)}
+                        aria-expanded={sourcesExpanded}
+                    >
+                        <h4 className="section-title" style={{ margin: 0 }}>📚 Data Sources</h4>
+                        <span className={`sources-chevron ${sourcesExpanded ? 'expanded' : ''}`}>▾</span>
+                    </button>
+                    {sourcesExpanded && (
+                        <div className="sources-panel">
+                            <div className="source-category">
+                                <span className="citation-source">AI Analysis</span>
+                                <span className="citation-detail">Gemini 2.5 Flash with Google Search grounding</span>
+                            </div>
+                            <div className="source-category">
+                                <span className="citation-source">Data APIs</span>
                                 <span className="citation-detail">
-                                    {gemini_analysis.sources_used.join(', ')}
+                                    Sleeper — {isOffseason
+                                        ? `projections & stats, ${data.season || 2025} NFL season`
+                                        : `projections & stats, Week ${data.week || '?'}, ${data.season || 2025}`}
                                 </span>
-                            </li>
-                        )}
-                        <li>
-                            <span className="citation-source">Generated</span>
-                            <span className="citation-detail">{new Date().toLocaleString()}</span>
-                        </li>
-                    </ul>
+                            </div>
+                            {gemini_analysis.sources_used && gemini_analysis.sources_used.length > 0 && (
+                                <div className="source-category">
+                                    <span className="citation-source">Web Sources</span>
+                                    <div className="web-sources-list">
+                                        {gemini_analysis.sources_used.map((source, i) => {
+                                            try {
+                                                const url = new URL(source)
+                                                return (
+                                                    <a key={i} href={source} target="_blank" rel="noopener noreferrer" className="web-source-link">
+                                                        {url.hostname.replace('www.', '')}
+                                                    </a>
+                                                )
+                                            } catch {
+                                                return <span key={i} className="web-source-text">{source}</span>
+                                            }
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            {data.expert_takes && data.expert_takes.filter(t => t.mentioned).length > 0 && (
+                                <div className="source-category">
+                                    <span className="citation-source">Expert Video Sources</span>
+                                    <span className="citation-detail">
+                                        {data.expert_takes.filter(t => t.mentioned).map(t => t.source).join(', ')}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="source-category last">
+                                <span className="citation-source">Generated</span>
+                                <span className="citation-detail">{new Date().toLocaleString()}</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Disclaimer */}

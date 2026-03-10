@@ -289,6 +289,9 @@ Based on ALL available information (stats + live search results + expert transcr
     "risk_level": "LOW" | "MODERATE" | "HIGH",
     "expert_consensus": "summary of what fantasy experts are saying, cite sources",
     "sources_used": ["source 1", "source 2", "source 3"],
+    "ecr_rank": null or integer,
+    "ecr_best": null or integer,
+    "ecr_worst": null or integer,
 {source_summaries_instruction}}}
 
 IMPORTANT:
@@ -296,6 +299,7 @@ IMPORTANT:
 - Include any injury news or matchup concerns
 {week_note}
 - For expert_source_summaries, write clean summaries (NOT raw transcript quotes)
+- When available from Google Search results, include the player's FantasyPros ECR (Expert Consensus Ranking) as ecr_rank (overall position rank), ecr_best (best expert rank), and ecr_worst (worst expert rank). Set to null if not found — do NOT guess or fabricate ECR numbers.
 
 Respond ONLY with valid JSON, no markdown formatting."""
 

@@ -97,30 +97,36 @@ function App() {
     setShowYahooSetup(false)
   }, [])
 
-  const handlePlayerSelect = useCallback(async (player) => {
-    setSelectedPlayer(player)
+  const loadPlayerData = useCallback(async (sleeperId) => {
     setLoading(true)
     setError(null)
-
-    // Navigate to search view if not already there
-    if (route !== 'search' && route !== 'home') {
-      navigate('search')
-    }
-
     try {
-      const response = await apiFetch(`/api/players/${player.sleeper_id}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch player data')
-      }
+      const response = await apiFetch(`/api/players/${sleeperId}`)
+      if (!response.ok) throw new Error('Failed to fetch player data')
       const data = await response.json()
       setEnhancedData(data)
+      setSelectedPlayer(data.player)
     } catch (err) {
       setError(err.message)
       setEnhancedData(null)
     } finally {
       setLoading(false)
     }
-  }, [navigate, route])
+  }, [])
+
+  const handlePlayerSelect = useCallback(async (player) => {
+    setSelectedPlayer(player)
+    setEnhancedData(null)
+    navigate(`player/${player.sleeper_id}`)
+    await loadPlayerData(player.sleeper_id)
+  }, [navigate, loadPlayerData])
+
+  // Deep-link: load player data when navigating directly to #/player/:id
+  useEffect(() => {
+    if (route === 'player' && params.id && !enhancedData && !loading) {
+      loadPlayerData(params.id)
+    }
+  }, [route, params.id, enhancedData, loading, loadPlayerData])
 
   const handleYahooConnected = useCallback(() => {
     navigate('roster')
@@ -229,6 +235,41 @@ function App() {
                 <h2>Search for a player</h2>
                 <p>Get enhanced projections, performance flags, and AI-powered insights</p>
               </div>
+            )}
+          </div>
+        )
+
+      case 'player':
+        return (
+          <div className="player-detail-page">
+            <button
+              className="back-button"
+              onClick={() => window.history.back()}
+            >
+              Back
+            </button>
+
+            {loading && (
+              <div className="player-section">
+                <PlayerCardSkeleton />
+                <ChartSkeleton />
+              </div>
+            )}
+
+            {error && (
+              <div className="error-state">
+                <p>{error}</p>
+              </div>
+            )}
+
+            {enhancedData && !loading && (
+              <section className="player-section">
+                <EnhancedCard data={enhancedData} />
+                <PerformanceChart
+                  playerId={params.id}
+                  playerName={selectedPlayer?.name}
+                />
+              </section>
             )}
           </div>
         )
