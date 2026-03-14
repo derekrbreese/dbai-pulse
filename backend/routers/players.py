@@ -76,7 +76,8 @@ async def get_player_trends(sleeper_id: str, lookback: int = Query(3, ge=1, le=8
 
         points = 0.0
         if stats:
-            points = stats.get("pts_ppr") or stats.get("pts") or 0.0
+            stat_data = stats.get("stats", stats)
+            points = stat_data.get("pts_ppr") or stat_data.get("pts") or 0.0
 
         weekly_data.append(
             {

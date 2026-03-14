@@ -38,6 +38,7 @@ function PlayerHeadshot({ espnId, position, size = 48 }) {
             alt={position}
             width={size}
             height={size}
+            loading="lazy"
             style={{ borderColor: color }}
             onError={() => setImgError(true)}
         />

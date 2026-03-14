@@ -1,5 +1,5 @@
 """
-Gemini 3 Flash synthesis service for dbAI Pulse.
+Gemini 3.1 Flash Lite synthesis service for dbAI Pulse.
 Uses Google's genai SDK with Google Search grounding for real-time fantasy insights.
 """
 
@@ -19,9 +19,9 @@ settings = get_settings()
 
 
 class GeminiSynthesis:
-    """Service for synthesizing fantasy football insights using Gemini 3 Flash with Google Search."""
+    """Service for synthesizing fantasy football insights using Gemini 3.1 Flash Lite with Google Search."""
 
-    MODEL_NAME = "gemini-3-flash-preview"  # Gemini 3 Flash Preview
+    MODEL_NAME = "gemini-3.1-flash-lite-preview"  # Gemini 3.1 Flash Lite
 
     SYSTEM_INSTRUCTION = (
         "You are a fantasy football analysis assistant for dbAI Pulse. "
@@ -323,7 +323,7 @@ Respond ONLY with valid JSON, no markdown formatting."""
         on_bye: bool = False,
     ) -> Dict:
         """
-        Use Gemini 3 Flash with Google Search grounding to synthesize insights.
+        Use Gemini 3.1 Flash Lite with Google Search grounding to synthesize insights.
         """
         offseason = GeminiSynthesis._is_offseason(season_type)
         fallback_rec = "HOLD" if offseason else "FLEX"
@@ -350,7 +350,7 @@ Respond ONLY with valid JSON, no markdown formatting."""
             )
 
             logger.info(
-                f"Sending Gemini 3 Flash request with Google Search for {player_name}"
+                f"Sending Gemini 3.1 Flash Lite request with Google Search for {player_name}"
             )
 
             # Create content parts

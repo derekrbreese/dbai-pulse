@@ -138,7 +138,7 @@ function Layout({ children, route, navigate, authUser, onLogout, yahooConnect })
                 </main>
 
                 <footer className="app-footer">
-                    <p>dbAI Pulse v0.3.0 • Data from Sleeper API • Powered by Gemini 3 Flash</p>
+                    <p>dbAI Pulse v0.3.0 • Data from Sleeper API • Powered by Gemini 3.1 Flash Lite</p>
                 </footer>
             </div>
         </div>
