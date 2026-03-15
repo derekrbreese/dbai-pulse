@@ -204,7 +204,7 @@ function PulseModal({ data, playerName: _playerName, onClose }) {
                         <div className="sources-panel">
                             <div className="source-category">
                                 <span className="citation-source">AI Analysis</span>
-                                <span className="citation-detail">Gemini 2.5 Flash with Google Search grounding</span>
+                                <span className="citation-detail">Gemini 3.1 Flash Lite with Google Search grounding</span>
                             </div>
                             <div className="source-category">
                                 <span className="citation-source">Data APIs</span>
