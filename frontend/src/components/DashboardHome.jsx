@@ -61,9 +61,6 @@ function DashboardHome({ navigate, onPlayerSelect }) {
             {/* Hero Search */}
             <div className="home-search-wrapper">
                 <PlayerSearch onPlayerSelect={onPlayerSelect} variant="hero" />
-                <div className="search-hint">
-                    <kbd>/</kbd> to focus search
-                </div>
             </div>
 
             {/* Quick Action Cards */}

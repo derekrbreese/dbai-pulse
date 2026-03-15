@@ -56,30 +56,6 @@
     position: relative;
 }
 
-.search-hint {
-    text-align: center;
-    margin-top: 10px;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    color: var(--text-muted);
-}
-
-.search-hint kbd {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 20px;
-    background: var(--bg-hover);
-    border: 1px solid var(--border-medium);
-    border-radius: 4px;
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-    margin-right: 4px;
-    box-shadow: 0 1px 0 var(--border-medium);
-}
-
 /* ===== Quick Actions ===== */
 .quick-actions-grid {
     display: grid;
