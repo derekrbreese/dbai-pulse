@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import PulseButton from './PulseButton'
 import PlayerHeadshot from './PlayerHeadshot'
 import ScoreBreakdown from './ScoreBreakdown'
 import { apiFetch } from '../api/client'
+import { RosterGridSkeleton } from './SkeletonLoader'
+import useAsyncRequest from '../hooks/useAsyncRequest'
 import './RosterView.css'
 
 const DEFAULT_PREFERENCES = {
@@ -21,17 +23,10 @@ function RosterView({ onPlayerSelect, navigate }) {
   const [compareA, setCompareA] = useState(null)
 
   const [loadingTeams, setLoadingTeams] = useState(true)
-  const [loadingInsights, setLoadingInsights] = useState(false)
   const [savingPreferences, setSavingPreferences] = useState(false)
-  const [error, setError] = useState(null)
-  const activeRequestRef = useRef(0)
+  const { execute: executeInsights, loading: loadingInsights, error, setError } = useAsyncRequest()
 
   const selectedTeam = teams.find(team => team.team_key === selectedTeamKey) || null
-  const nextRequestToken = () => {
-    activeRequestRef.current += 1
-    return activeRequestRef.current
-  }
-  const isActiveRequest = (token) => token === activeRequestRef.current
 
   const fetchPreferences = useCallback(async (teamKey) => {
     const response = await apiFetch(`/api/yahoo/teams/${encodeURIComponent(teamKey)}/preferences`)
@@ -41,19 +36,15 @@ function RosterView({ onPlayerSelect, navigate }) {
     return response.json()
   }, [])
 
-  const fetchInsights = useCallback(async (teamKey, teamPreferences, refresh = false, requestToken = null) => {
-    const token = requestToken ?? nextRequestToken()
-    const params = new URLSearchParams({
-      scoring: teamPreferences.scoring,
-      risk: teamPreferences.risk,
-      focus: teamPreferences.focus,
-      refresh: refresh ? 'true' : 'false',
-    })
+  const fetchInsights = useCallback(async (teamKey, teamPreferences, refresh = false) => {
+    return executeInsights(async () => {
+      const params = new URLSearchParams({
+        scoring: teamPreferences.scoring,
+        risk: teamPreferences.risk,
+        focus: teamPreferences.focus,
+        refresh: refresh ? 'true' : 'false',
+      })
 
-    setLoadingInsights(true)
-    setError(null)
-
-    try {
       const response = await apiFetch(
         `/api/yahoo/teams/${encodeURIComponent(teamKey)}/insights?${params.toString()}`
       )
@@ -66,31 +57,15 @@ function RosterView({ onPlayerSelect, navigate }) {
       }
 
       const data = await response.json()
-      if (!isActiveRequest(token)) {
-        return null
-      }
       setInsights(data)
       return data
-    } catch (err) {
-      if (isActiveRequest(token)) {
-        throw err
-      }
-      return null
-    } finally {
-      if (isActiveRequest(token)) {
-        setLoadingInsights(false)
-      }
-    }
-  }, [])
+    })
+  }, [executeInsights])
 
   const loadTeamData = useCallback(async (teamKey, refresh = false) => {
-    const requestToken = nextRequestToken()
     const teamPreferences = await fetchPreferences(teamKey)
-    if (!isActiveRequest(requestToken)) {
-      return
-    }
     setPreferences(teamPreferences)
-    await fetchInsights(teamKey, teamPreferences, refresh, requestToken)
+    await fetchInsights(teamKey, teamPreferences, refresh)
   }, [fetchPreferences, fetchInsights])
 
   const fetchTeams = useCallback(async () => {
@@ -126,7 +101,7 @@ function RosterView({ onPlayerSelect, navigate }) {
     } finally {
       setLoadingTeams(false)
     }
-  }, [loadTeamData])
+  }, [loadTeamData, setError])
 
   useEffect(() => {
     fetchTeams()
@@ -158,7 +133,6 @@ function RosterView({ onPlayerSelect, navigate }) {
     setError(null)
 
     try {
-      const requestToken = nextRequestToken()
       const response = await apiFetch(
         `/api/yahoo/teams/${encodeURIComponent(selectedTeamKey)}/preferences`,
         {
@@ -176,11 +150,8 @@ function RosterView({ onPlayerSelect, navigate }) {
       }
 
       const saved = await response.json()
-      if (!isActiveRequest(requestToken)) {
-        return
-      }
       setPreferences(saved)
-      await fetchInsights(selectedTeamKey, saved, true, requestToken)
+      await fetchInsights(selectedTeamKey, saved, true)
     } catch (err) {
       console.error(err)
       setError(err.message)
@@ -191,42 +162,35 @@ function RosterView({ onPlayerSelect, navigate }) {
 
   const handleRefresh = async () => {
     if (!selectedTeamKey) return
-    const requestToken = nextRequestToken()
-    setError(null)
-    setLoadingInsights(true)
 
     try {
-      const response = await apiFetch(
-        `/api/yahoo/teams/${encodeURIComponent(selectedTeamKey)}/insights/refresh`,
-        {
-          method: 'POST',
+      await executeInsights(async () => {
+        const response = await apiFetch(
+          `/api/yahoo/teams/${encodeURIComponent(selectedTeamKey)}/insights/refresh`,
+          { method: 'POST' }
+        )
+
+        if (!response.ok) {
+          throw new Error('Failed to refresh roster insights')
         }
-      )
 
-      if (!response.ok) {
-        throw new Error('Failed to refresh roster insights')
-      }
-
-      const data = await response.json()
-      if (!isActiveRequest(requestToken)) {
-        return
-      }
-      setInsights(data)
-      setPreferences(prev => data.preferences || prev)
+        const data = await response.json()
+        setInsights(data)
+        setPreferences(prev => data.preferences || prev)
+        return data
+      })
     } catch (err) {
       console.error(err)
-      if (isActiveRequest(requestToken)) {
-        setError(err.message)
-      }
-    } finally {
-      if (isActiveRequest(requestToken)) {
-        setLoadingInsights(false)
-      }
     }
   }
 
   if (loadingTeams) {
-    return <div className="roster-loading">Loading Yahoo team import...</div>
+    return (
+      <div className="roster-view">
+        <div className="roster-loading-header">Loading Yahoo team import...</div>
+        <RosterGridSkeleton count={6} />
+      </div>
+    )
   }
 
   if (!teams.length) {
@@ -390,6 +354,8 @@ function RosterView({ onPlayerSelect, navigate }) {
           </div>
         </div>
       )}
+
+      {loadingInsights && !insights && <RosterGridSkeleton count={8} />}
 
       <div className="roster-grid">
         {insights?.players?.map(player => {

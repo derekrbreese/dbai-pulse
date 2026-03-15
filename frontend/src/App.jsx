@@ -4,8 +4,7 @@ import { apiFetch } from './api/client'
 import Layout from './components/Layout'
 import DashboardHome from './components/DashboardHome'
 import PlayerSearch from './components/PlayerSearch'
-import EnhancedCard from './components/EnhancedCard'
-import PerformanceChart from './components/PerformanceChart'
+import PlayerDetailPage from './components/PlayerDetailPage'
 import ComparisonView from './components/ComparisonView'
 import FlagsBrowser from './components/FlagsBrowser'
 import AuthPage from './components/AuthPage'
@@ -13,7 +12,7 @@ import YahooConnect from './components/YahooConnect'
 import RosterView from './components/RosterView'
 import WaiverWire from './components/WaiverWire'
 import YahooSetupPage from './components/YahooSetupPage'
-import { PlayerCardSkeleton, ChartSkeleton } from './components/SkeletonLoader'
+import ErrorBoundary from './components/ErrorBoundary'
 import './App.css'
 
 function App() {
@@ -25,12 +24,6 @@ function App() {
   const [authError, setAuthError] = useState(null)
   const [showAuthGate, setShowAuthGate] = useState(false)
   const [authIntent, setAuthIntent] = useState(null)
-
-  // Player state
-  const [selectedPlayer, setSelectedPlayer] = useState(null)
-  const [enhancedData, setEnhancedData] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
 
   // Yahoo setup
   const [showYahooSetup, setShowYahooSetup] = useState(false)
@@ -84,9 +77,6 @@ function App() {
       setShowAuthGate(false)
       setAuthIntent(null)
       setShowYahooSetup(false)
-      setSelectedPlayer(null)
-      setEnhancedData(null)
-      setError(null)
       navigate('')
     }
   }, [navigate])
@@ -97,36 +87,9 @@ function App() {
     setShowYahooSetup(false)
   }, [])
 
-  const loadPlayerData = useCallback(async (sleeperId) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const response = await apiFetch(`/api/players/${sleeperId}`)
-      if (!response.ok) throw new Error('Failed to fetch player data')
-      const data = await response.json()
-      setEnhancedData(data)
-      setSelectedPlayer(data.player)
-    } catch (err) {
-      setError(err.message)
-      setEnhancedData(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const handlePlayerSelect = useCallback(async (player) => {
-    setSelectedPlayer(player)
-    setEnhancedData(null)
+  const handlePlayerSelect = useCallback((player) => {
     navigate(`player/${player.sleeper_id}`)
-    await loadPlayerData(player.sleeper_id)
-  }, [navigate, loadPlayerData])
-
-  // Deep-link: load player data when navigating directly to #/player/:id
-  useEffect(() => {
-    if (route === 'player' && params.id && !enhancedData && !loading) {
-      loadPlayerData(params.id)
-    }
-  }, [route, params.id, enhancedData, loading, loadPlayerData])
+  }, [navigate])
 
   const handleYahooConnected = useCallback(() => {
     navigate('roster')
@@ -147,6 +110,21 @@ function App() {
       onUnauthorized={handleLogout}
     />
   )
+
+  // Auth gate helper for protected routes
+  const requireAuth = (children) => {
+    if (!authUser) {
+      return (
+        <section className="auth-gate-section">
+          <AuthPage
+            onAuthenticated={handleAuthenticated}
+            onCancel={() => navigate('')}
+          />
+        </section>
+      )
+    }
+    return children
+  }
 
   // Render the current page
   const renderPage = () => {
@@ -192,12 +170,7 @@ function App() {
 
     switch (route) {
       case 'home':
-        return (
-          <DashboardHome
-            navigate={navigate}
-            onPlayerSelect={handlePlayerSelect}
-          />
-        )
+        return <DashboardHome navigate={navigate} onPlayerSelect={handlePlayerSelect} />
 
       case 'search':
         return (
@@ -205,127 +178,39 @@ function App() {
             <section className="search-section">
               <PlayerSearch onPlayerSelect={handlePlayerSelect} />
             </section>
-
-            {loading && (
-              <div className="player-section">
-                <PlayerCardSkeleton />
-                <ChartSkeleton />
-              </div>
-            )}
-
-            {error && (
-              <div className="error-state">
-                <p>⚠️ {error}</p>
-              </div>
-            )}
-
-            {enhancedData && !loading && (
-              <section className="player-section">
-                <EnhancedCard data={enhancedData} />
-                <PerformanceChart
-                  playerId={selectedPlayer.sleeper_id}
-                  playerName={selectedPlayer.name}
-                />
-              </section>
-            )}
-
-            {!selectedPlayer && !loading && (
-              <div className="empty-state">
-                <div className="empty-icon">🔍</div>
-                <h2>Search for a player</h2>
-                <p>Get enhanced projections, performance flags, and AI-powered insights</p>
-              </div>
-            )}
+            <div className="empty-state">
+              <div className="empty-icon">🔍</div>
+              <h2>Search for a player</h2>
+              <p>Get enhanced projections, performance flags, and AI-powered insights</p>
+            </div>
           </div>
         )
 
       case 'player':
-        return (
-          <div className="player-detail-page">
-            <button
-              className="back-button"
-              onClick={() => window.history.back()}
-            >
-              Back
-            </button>
-
-            {loading && (
-              <div className="player-section">
-                <PlayerCardSkeleton />
-                <ChartSkeleton />
-              </div>
-            )}
-
-            {error && (
-              <div className="error-state">
-                <p>{error}</p>
-              </div>
-            )}
-
-            {enhancedData && !loading && (
-              <section className="player-section">
-                <EnhancedCard data={enhancedData} />
-                <PerformanceChart
-                  playerId={params.id}
-                  playerName={selectedPlayer?.name}
-                />
-              </section>
-            )}
-          </div>
-        )
+        return <PlayerDetailPage key={params.id} playerId={params.id} />
 
       case 'trends':
-        return (
-          <FlagsBrowser
-            onPlayerSelect={handlePlayerSelect}
-            navigate={navigate}
-          />
-        )
+        return <FlagsBrowser onPlayerSelect={handlePlayerSelect} navigate={navigate} />
 
       case 'compare':
         return <ComparisonView params={params} />
 
       case 'roster':
-        if (!authUser) {
-          return (
-            <section className="auth-gate-section">
-              <AuthPage
-                onAuthenticated={handleAuthenticated}
-                onCancel={() => navigate('')}
-              />
-            </section>
-          )
-        }
-        return (
+        return requireAuth(
           <section className="roster-section">
             <RosterView onPlayerSelect={handlePlayerSelect} navigate={navigate} />
           </section>
         )
 
       case 'waiver':
-        if (!authUser) {
-          return (
-            <section className="auth-gate-section">
-              <AuthPage
-                onAuthenticated={handleAuthenticated}
-                onCancel={() => navigate('')}
-              />
-            </section>
-          )
-        }
-        return (
+        return requireAuth(
           <section className="waiver-section">
-            <WaiverWire onPlayerSelect={handlePlayerSelect} navigate={navigate} />
+            <WaiverWire onPlayerSelect={handlePlayerSelect} />
           </section>
         )
 
       default:
-        return (
-          <DashboardHome
-            navigate={navigate}
-            onPlayerSelect={handlePlayerSelect}
-          />
-        )
+        return <DashboardHome navigate={navigate} onPlayerSelect={handlePlayerSelect} />
     }
   }
 
@@ -337,9 +222,11 @@ function App() {
       onLogout={handleLogout}
       yahooConnect={yahooConnect}
     >
-      <div key={route} className="page-transition">
-        {renderPage()}
-      </div>
+      <ErrorBoundary key={route}>
+        <div className="page-transition">
+          {renderPage()}
+        </div>
+      </ErrorBoundary>
     </Layout>
   )
 }

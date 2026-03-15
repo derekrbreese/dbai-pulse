@@ -54,6 +54,30 @@ export function PlayerCardSkeleton() {
     )
 }
 
+export function RosterGridSkeleton({ count = 8 }) {
+    return (
+        <div className="skeleton-roster-grid">
+            {Array.from({ length: count }, (_, i) => (
+                <div key={i} className="skeleton-roster-card">
+                    <div className="skeleton-roster-header">
+                        <div className="skeleton-avatar-sm" />
+                        <div className="skeleton-roster-header-text">
+                            <SkeletonLine width="100px" height="14px" />
+                            <SkeletonLine width="50px" height="10px" />
+                        </div>
+                    </div>
+                    <SkeletonLine width="80%" height="12px" />
+                    <SkeletonLine width="60%" height="12px" />
+                    <div className="skeleton-roster-footer">
+                        <SkeletonLine width="70px" height="22px" />
+                        <SkeletonLine width="50px" height="22px" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    )
+}
+
 export function ChartSkeleton() {
     return (
         <div className="skeleton-chart">

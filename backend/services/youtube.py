@@ -4,10 +4,10 @@ Fetches and processes fantasy football video transcripts.
 """
 
 import logging
-import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
+from cachetools import TTLCache
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
 
@@ -28,15 +28,15 @@ class YouTubeService:
         "lateroundff": "Late-Round Fantasy Football",
     }
 
-    # Cache for search results: key -> (results, timestamp)
-    _search_cache: Dict[str, Tuple[List[Dict], float]] = {}
-
     # Cache for resolved channel IDs: handle -> channel_id
     _channel_id_cache: Dict[str, str] = {}
 
     def __init__(self):
         self.settings = get_settings()
         self._youtube = None
+        self._search_cache: TTLCache = TTLCache(
+            maxsize=200, ttl=self.settings.transcript_cache_ttl
+        )
 
     @property
     def youtube(self):
@@ -107,11 +107,10 @@ class YouTubeService:
         """
         # Check cache first
         cache_key = f"{player_name}:{max_results}:{days_back}"
-        if cache_key in self._search_cache:
-            results, timestamp = self._search_cache[cache_key]
-            if time.time() - timestamp < self.settings.transcript_cache_ttl:
-                logger.info(f"Returning cached search results for '{player_name}'")
-                return results
+        cached = self._search_cache.get(cache_key)
+        if cached is not None:
+            logger.info(f"Returning cached search results for '{player_name}'")
+            return cached
 
         if not self.youtube:
             logger.warning("YouTube API key not configured, skipping video search")
@@ -225,7 +224,7 @@ class YouTubeService:
         results = (curated + general)[:max_results]
 
         # Cache results
-        self._search_cache[cache_key] = (results, time.time())
+        self._search_cache[cache_key] = results
 
         logger.info(
             f"Returning {len(results)} total videos for '{player_name}' "

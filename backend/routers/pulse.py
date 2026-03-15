@@ -5,6 +5,7 @@ Combines Sleeper projections, YouTube expert takes, and Gemini AI
 into a single actionable analysis.
 """
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException, Request
@@ -63,22 +64,31 @@ async def get_player_pulse(request: Request, sleeper_id: str):
         days_back=90,
     )
 
-    for video in video_results[:3]:
-        transcript = youtube_service.get_transcript(video["video_id"])
-        if transcript:
-            mentions = youtube_service.extract_player_mentions(transcript, player.name)
-            if mentions:
-                video_context = youtube_service.summarize_for_gemini(
-                    mentions, max_length=500
-                )
-                youtube_context_parts.append(
-                    f"[{video['channel_name']}]: {video_context}"
-                )
-                mentioned_sources.append(video["channel_name"])
-            else:
-                not_mentioned_sources.append(video["channel_name"])
+    async def _process_video(video):
+        """Fetch transcript and extract mentions for a single video concurrently."""
+        transcript = await asyncio.to_thread(
+            youtube_service.get_transcript, video["video_id"]
+        )
+        if not transcript:
+            return None, video["channel_name"]
+        mentions = youtube_service.extract_player_mentions(transcript, player.name)
+        if not mentions:
+            return None, video["channel_name"]
+        video_context = youtube_service.summarize_for_gemini(
+            mentions, max_length=500
+        )
+        return f"[{video['channel_name']}]: {video_context}", video["channel_name"]
+
+    results = await asyncio.gather(
+        *[_process_video(v) for v in video_results[:3]]
+    )
+
+    for context_text, channel_name in results:
+        if context_text:
+            youtube_context_parts.append(context_text)
+            mentioned_sources.append(channel_name)
         else:
-            not_mentioned_sources.append(video["channel_name"])
+            not_mentioned_sources.append(channel_name)
 
     if youtube_context_parts:
         youtube_context = "\n\n---\n\n".join(youtube_context_parts)
