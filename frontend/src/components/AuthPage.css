@@ -93,6 +93,10 @@
     cursor: not-allowed;
 }
 
+.auth-submit:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
 .auth-cancel {
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-sm);
@@ -108,6 +112,10 @@
 .auth-cancel:hover {
     color: var(--text-primary);
     border-color: var(--text-secondary);
+}
+
+.auth-cancel:active {
+    transform: scale(0.97);
 }
 
 .auth-error {
@@ -136,4 +144,8 @@
 
 .auth-forgot-link:hover {
     color: var(--accent);
+}
+
+.auth-forgot-link:active {
+    opacity: 0.7;
 }

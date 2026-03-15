@@ -117,6 +117,10 @@
   transform: scale(1.05);
 }
 
+.pulse-close:active {
+  transform: scale(0.93);
+}
+
 .pulse-player-info {
   padding: 24px 32px;
   display: flex;
@@ -349,6 +353,10 @@
 
 .sources-toggle:hover {
   background: rgba(99, 102, 241, 0.06);
+}
+
+.sources-toggle:active {
+  background: rgba(99, 102, 241, 0.12);
 }
 
 .sources-chevron {
