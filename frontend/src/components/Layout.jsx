@@ -98,9 +98,14 @@ function Layout({ children, route, navigate, authUser, onLogout, yahooConnect })
                                     <span className="user-email" title={authUser.email}>
                                         {authUser.email}
                                     </span>
-                                    <button className="logout-btn" onClick={onLogout}>
-                                        Log out
-                                    </button>
+                                    <div className="user-actions">
+                                        <button className="account-btn" onClick={() => navigate('account')}>
+                                            Change Password
+                                        </button>
+                                        <button className="logout-btn" onClick={onLogout}>
+                                            Log out
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>

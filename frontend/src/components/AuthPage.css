@@ -115,3 +115,25 @@
     color: var(--danger);
     font-size: 0.78rem;
 }
+
+.auth-success {
+    margin: 4px 0 0;
+    color: var(--success);
+    font-size: 0.78rem;
+}
+
+.auth-forgot-link {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 4px 0;
+    text-align: center;
+}
+
+.auth-forgot-link:hover {
+    color: var(--accent);
+}

@@ -258,6 +258,29 @@
   color: var(--danger);
 }
 
+.user-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.account-btn {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.account-btn:hover {
+  color: var(--accent);
+}
+
 /* ===== Main Content Area ===== */
 .layout-main {
   flex: 1;

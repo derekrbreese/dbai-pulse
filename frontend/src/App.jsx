@@ -12,6 +12,8 @@ import YahooConnect from './components/YahooConnect'
 import RosterView from './components/RosterView'
 import WaiverWire from './components/WaiverWire'
 import YahooSetupPage from './components/YahooSetupPage'
+import ResetPasswordPage from './components/ResetPasswordPage'
+import ChangePasswordPage from './components/ChangePasswordPage'
 import ErrorBoundary from './components/ErrorBoundary'
 import './App.css'
 
@@ -194,6 +196,14 @@ function App() {
 
       case 'compare':
         return <ComparisonView params={params} />
+
+      case 'reset-password':
+        return <ResetPasswordPage token={params.token} navigate={navigate} />
+
+      case 'account':
+        return requireAuth(
+          <ChangePasswordPage />
+        )
 
       case 'roster':
         return requireAuth(

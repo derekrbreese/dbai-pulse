@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     adp_cache_ttl: int = 6 * 60 * 60  # 6 hours
     yahoo_cache_ttl_seconds: int = 5 * 60  # 5 minutes
 
+    # Email (Resend)
+    resend_api_key: str = ""
+    password_reset_from_email: str = "noreply@dbaifantasy.com"
+
     # Session + local storage
     session_secret_key: str = "change-me-session-secret"
     token_encryption_key: str = ""

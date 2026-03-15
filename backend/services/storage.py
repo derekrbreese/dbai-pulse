@@ -219,6 +219,21 @@ class SQLiteStorage:
 
         return now
 
+    def update_user_password(self, user_id: str, password_hash: str) -> None:
+        """Update a user's password hash."""
+        now = int(time.time())
+
+        with self._write_lock:
+            with self._connect() as conn:
+                conn.execute(
+                    """
+                    UPDATE users
+                    SET password_hash = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (password_hash, now, user_id),
+                )
+
     def get_yahoo_token(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Load encrypted Yahoo token record for a user."""
         with self._connect() as conn:
