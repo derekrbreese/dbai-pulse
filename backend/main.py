@@ -30,14 +30,15 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Detect local dev (any non-HTTPS origin means we're not in production)
-_is_local = any(o.startswith("http://") for o in settings.frontend_origin_list)
+# Detect local dev — production mode if any origin uses HTTPS
+_is_local = all(o.startswith("http://") for o in settings.frontend_origin_list)
 
 # Middleware is applied in reverse order — last added = outermost.
 # SessionMiddleware must be INNER so CORSMiddleware handles OPTIONS preflight first.
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret_key,
+    max_age=86400 * 7,  # 7 days
     https_only=not _is_local,
     same_site="lax" if _is_local else "none",
 )
