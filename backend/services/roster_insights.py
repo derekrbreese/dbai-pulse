@@ -2,6 +2,7 @@
 Roster insights service for imported Yahoo teams.
 """
 
+import asyncio
 import difflib
 import logging
 import re
@@ -758,53 +759,49 @@ class RosterInsightsService:
         matched_count = 0
         unmatched_count = 0
         index = await self._build_player_index()
+        semaphore = asyncio.Semaphore(10)
 
-        for yahoo_player in roster:
-            sleeper_id, confidence, match_reason = await self.match_player(
-                yahoo_player=yahoo_player,
-                index=index,
-                user_id=user_id,
-                team_key=team_key,
-            )
-            enhanced_player = None
-            if sleeper_id:
-                enhanced_player = await self.build_enhanced_player(sleeper_id, preferences.scoring)
-                if enhanced_player:
-                    yahoo_player_key, yahoo_player_id = self._extract_yahoo_player_identifiers(
-                        yahoo_player
-                    )
-                    self.storage.save_player_mapping(
-                        user_id=user_id,
-                        team_key=team_key,
-                        yahoo_player_key=yahoo_player_key,
-                        yahoo_player_id=yahoo_player_id,
-                        sleeper_id=sleeper_id,
-                        confidence=confidence,
-                        match_reason=match_reason,
-                    )
+        async def _process_roster_player(yahoo_player):
+            async with semaphore:
+                sleeper_id, confidence, match_reason = await self.match_player(
+                    yahoo_player=yahoo_player,
+                    index=index,
+                    user_id=user_id,
+                    team_key=team_key,
+                )
+                enhanced_player = None
+                if sleeper_id:
+                    enhanced_player = await self.build_enhanced_player(sleeper_id, preferences.scoring)
+                    if enhanced_player:
+                        yahoo_player_key, yahoo_player_id = self._extract_yahoo_player_identifiers(
+                            yahoo_player
+                        )
+                        self.storage.save_player_mapping(
+                            user_id=user_id,
+                            team_key=team_key,
+                            yahoo_player_key=yahoo_player_key,
+                            yahoo_player_id=yahoo_player_id,
+                            sleeper_id=sleeper_id,
+                            confidence=confidence,
+                            match_reason=match_reason,
+                        )
 
-            score, breakdown = self._calculate_feedback_score(
-                enhanced_player=enhanced_player,
-                risk=preferences.risk,
-                focus=preferences.focus,
-                status=yahoo_player.get("status"),
-                injury_status=yahoo_player.get("injury_status"),
-            )
-            feedback = self._build_custom_feedback(
-                enhanced_player=enhanced_player,
-                risk=preferences.risk,
-                focus=preferences.focus,
-                match_reason=match_reason,
-                feedback_score=score,
-            )
+                score, breakdown = self._calculate_feedback_score(
+                    enhanced_player=enhanced_player,
+                    risk=preferences.risk,
+                    focus=preferences.focus,
+                    status=yahoo_player.get("status"),
+                    injury_status=yahoo_player.get("injury_status"),
+                )
+                feedback = self._build_custom_feedback(
+                    enhanced_player=enhanced_player,
+                    risk=preferences.risk,
+                    focus=preferences.focus,
+                    match_reason=match_reason,
+                    feedback_score=score,
+                )
 
-            if enhanced_player:
-                matched_count += 1
-            else:
-                unmatched_count += 1
-
-            players.append(
-                RosterInsightPlayer(
+                return RosterInsightPlayer(
                     yahoo_player_key=yahoo_player.get("player_key") or yahoo_player.get("player_id") or "",
                     name=yahoo_player.get("name", "Unknown"),
                     position=yahoo_player.get("position"),
@@ -819,7 +816,16 @@ class RosterInsightsService:
                     feedback_score=score,
                     score_breakdown=breakdown,
                 )
-            )
+
+        players = list(await asyncio.gather(
+            *[_process_roster_player(yp) for yp in roster]
+        ))
+
+        for p in players:
+            if p.enhanced_player:
+                matched_count += 1
+            else:
+                unmatched_count += 1
 
         imported_at = int(time.time())
         summary = (
@@ -895,44 +901,42 @@ class RosterInsightsService:
         )
 
         index = await self._build_player_index()
-        players: List[WaiverPlayerInsight] = []
         matched_count = 0
+        semaphore = asyncio.Semaphore(10)
 
-        for yahoo_player in raw_players:
-            sleeper_id, confidence, match_reason = await self.match_player(
-                yahoo_player=yahoo_player,
-                index=index,
-                user_id=user_id,
-            )
+        async def _process_waiver_player(yahoo_player):
+            async with semaphore:
+                sleeper_id, confidence, match_reason = await self.match_player(
+                    yahoo_player=yahoo_player,
+                    index=index,
+                    user_id=user_id,
+                )
 
-            enhanced_player = None
-            if sleeper_id:
-                enhanced_player = await self.build_enhanced_player(sleeper_id, preferences.scoring)
-                if enhanced_player:
-                    matched_count += 1
+                enhanced_player = None
+                if sleeper_id:
+                    enhanced_player = await self.build_enhanced_player(sleeper_id, preferences.scoring)
 
-            score, breakdown = self._calculate_feedback_score(
-                enhanced_player=enhanced_player,
-                risk=preferences.risk,
-                focus=preferences.focus,
-                status=yahoo_player.get("status"),
-                injury_status=yahoo_player.get("injury_status"),
-            )
+                score, breakdown = self._calculate_feedback_score(
+                    enhanced_player=enhanced_player,
+                    risk=preferences.risk,
+                    focus=preferences.focus,
+                    status=yahoo_player.get("status"),
+                    injury_status=yahoo_player.get("injury_status"),
+                )
 
-            if score is not None and score >= 7.0:
-                recommendation = "GRAB"
-            elif score is not None and score >= 4.0:
-                recommendation = "WATCH"
-            else:
-                recommendation = "SKIP"
+                if score is not None and score >= 7.0:
+                    recommendation = "GRAB"
+                elif score is not None and score >= 4.0:
+                    recommendation = "WATCH"
+                else:
+                    recommendation = "SKIP"
 
-            percent_owned = yahoo_player.get("percent_owned")
-            reasoning = self._build_waiver_reasoning(
-                enhanced_player, recommendation, score, percent_owned,
-            )
+                percent_owned = yahoo_player.get("percent_owned")
+                reasoning = self._build_waiver_reasoning(
+                    enhanced_player, recommendation, score, percent_owned,
+                )
 
-            players.append(
-                WaiverPlayerInsight(
+                return WaiverPlayerInsight(
                     yahoo_player_key=yahoo_player.get("player_key") or yahoo_player.get("player_id") or "",
                     name=yahoo_player.get("name", "Unknown"),
                     position=yahoo_player.get("position"),
@@ -944,8 +948,17 @@ class RosterInsightsService:
                     reasoning=reasoning,
                     score=score,
                     score_breakdown=breakdown,
-                )
-            )
+                ), bool(enhanced_player)
+
+        results = await asyncio.gather(
+            *[_process_waiver_player(yp) for yp in raw_players]
+        )
+
+        players: List[WaiverPlayerInsight] = []
+        for player_insight, was_matched in results:
+            players.append(player_insight)
+            if was_matched:
+                matched_count += 1
 
         players.sort(key=lambda p: p.score if p.score is not None else -1, reverse=True)
 

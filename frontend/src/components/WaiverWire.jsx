@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import PulseButton from './PulseButton'
 import PlayerHeadshot from './PlayerHeadshot'
 import ScoreBreakdown from './ScoreBreakdown'
 import { apiFetch } from '../api/client'
+import { RosterGridSkeleton } from './SkeletonLoader'
+import useAsyncRequest from '../hooks/useAsyncRequest'
 import './WaiverWire.css'
 
 const POSITION_FILTERS = ['All', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF']
@@ -21,8 +23,161 @@ const DEFAULT_PREFERENCES = {
   focus: 'upside',
 }
 
-function WaiverWire({ onPlayerSelect, navigate }) {
-  const [teams, setTeams] = useState([])
+const WaiverPlayerCard = memo(function WaiverPlayerCard({ player, onPlayerSelect }) {
+  const matched = Boolean(player.enhanced_player && player.matched_sleeper_id)
+  const projectionValue = matched
+    ? player.enhanced_player.projection.adjusted_projection
+        ?? player.enhanced_player.projection.sleeper_projection
+    : null
+
+  return (
+    <div
+      className={`waiver-player-card${matched ? ' clickable' : ''}`}
+      onClick={() => {
+        if (matched && onPlayerSelect) {
+          onPlayerSelect(player.enhanced_player.player)
+        }
+      }}
+      style={matched ? { cursor: 'pointer' } : undefined}
+    >
+      <div className="waiver-player-header">
+        <PlayerHeadshot
+          espnId={player.enhanced_player?.player?.espn_id}
+          position={player.position || 'N/A'}
+          size={32}
+        />
+        <span className="waiver-player-team">{player.team || 'FA'}</span>
+        {player.enhanced_player?.player?.injury_status && (
+          <span className={`injury-badge ${player.enhanced_player.player.injury_status.toLowerCase().replace('_', '')}`}>
+            {player.enhanced_player.player.injury_status}
+          </span>
+        )}
+      </div>
+
+      <h3 className="waiver-player-name">{player.name}</h3>
+
+      <div className="waiver-badge-row">
+        <div className={`waiver-recommendation-badge ${player.recommendation.toLowerCase()}`}>
+          {player.recommendation}
+        </div>
+
+        {player.percent_owned != null && (
+          <div className="waiver-owned-pill">
+            {player.percent_owned.toFixed(0)}% owned
+          </div>
+        )}
+
+        {player.score != null && (
+          <ScoreBreakdown score={player.score} breakdown={player.score_breakdown} />
+        )}
+      </div>
+
+      <p className="waiver-reasoning">{player.reasoning}</p>
+
+      {matched && (
+        <div className="waiver-analytics">
+          <div className="waiver-projection-row">
+            <span className="waiver-projection-label">Projection</span>
+            <span className="waiver-projection-value">{projectionValue?.toFixed(1)} pts</span>
+          </div>
+
+          {player.enhanced_player.recent_performance?.volatility_score != null && (
+            <div className="waiver-projection-row">
+              <span className="waiver-projection-label">Volatility</span>
+              <span className={`waiver-projection-value ${
+                player.enhanced_player.recent_performance.volatility_score < 0.25 ? 'text-success' :
+                player.enhanced_player.recent_performance.volatility_score < 0.5 ? 'text-warning' : 'text-danger'
+              }`}>
+                {(player.enhanced_player.recent_performance.volatility_score * 100).toFixed(0)}%
+              </span>
+            </div>
+          )}
+
+          {player.enhanced_player.performance_flags?.length > 0 && (
+            <div className="waiver-flags-inline">
+              {player.enhanced_player.performance_flags.slice(0, 3).map(flag => (
+                <span key={`${player.yahoo_player_key}-${flag}`} className="waiver-flag-chip">
+                  {flag.replace(/_/g, ' ')}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {matched && (
+        <div className="pulse-wrapper">
+          <PulseButton
+            sleeperId={player.enhanced_player.player.sleeper_id}
+            playerName={player.enhanced_player.player.name}
+          />
+        </div>
+      )}
+    </div>
+  )
+})
+
+const WaiverTieredList = memo(function WaiverTieredList({
+  players: allPlayers = [],
+  recommendationFilter,
+  collapsedTiers,
+  setCollapsedTiers,
+  onPlayerSelect,
+}) {
+  const tierGroups = useMemo(() => {
+    const filtered = recommendationFilter === 'All'
+      ? allPlayers
+      : allPlayers.filter(p => p.recommendation === recommendationFilter)
+
+    const groups = { GRAB: [], WATCH: [], SKIP: [] }
+    for (const p of filtered) {
+      const bucket = groups[p.recommendation] || groups.SKIP
+      bucket.push(p)
+    }
+    return groups
+  }, [allPlayers, recommendationFilter])
+
+  return (
+    <div className="waiver-tiered-list">
+      {['GRAB', 'WATCH', 'SKIP'].map(tier => {
+        const players = tierGroups[tier]
+        if (!players.length) return null
+        const config = TIER_CONFIG[tier]
+        const isCollapsed = collapsedTiers[tier]
+
+        return (
+          <div key={tier} className="waiver-tier-section">
+            <button
+              type="button"
+              className="waiver-tier-header"
+              style={{ '--tier-accent': config.accent }}
+              onClick={() => setCollapsedTiers(prev => ({ ...prev, [tier]: !prev[tier] }))}
+            >
+              <span className="waiver-tier-title">
+                {config.emoji} {config.label} ({players.length})
+              </span>
+              <span className={`waiver-tier-chevron${isCollapsed ? ' collapsed' : ''}`}>&#9660;</span>
+            </button>
+            {!isCollapsed && (
+              <div className="waiver-grid">
+                {players.map(player => (
+                  <WaiverPlayerCard
+                    key={player.yahoo_player_key || player.name}
+                    player={player}
+                    onPlayerSelect={onPlayerSelect}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+})
+
+function WaiverWire({ onPlayerSelect }) {
+  const [_teams, setTeams] = useState([])
   const [leagues, setLeagues] = useState([])
   const [selectedLeagueKey, setSelectedLeagueKey] = useState('')
   const [positionFilter, setPositionFilter] = useState('All')
@@ -32,15 +187,7 @@ function WaiverWire({ onPlayerSelect, navigate }) {
   const [waiverData, setWaiverData] = useState(null)
 
   const [loadingTeams, setLoadingTeams] = useState(true)
-  const [loadingWaivers, setLoadingWaivers] = useState(false)
-  const [error, setError] = useState(null)
-  const activeRequestRef = useRef(0)
-
-  const nextRequestToken = () => {
-    activeRequestRef.current += 1
-    return activeRequestRef.current
-  }
-  const isActiveRequest = (token) => token === activeRequestRef.current
+  const { execute: executeWaivers, loading: loadingWaivers, error, setError } = useAsyncRequest()
 
   // Derive unique leagues from teams
   const deriveLeagues = useCallback((teamsList) => {
@@ -58,21 +205,17 @@ function WaiverWire({ onPlayerSelect, navigate }) {
     return Array.from(seen.values())
   }, [])
 
-  const fetchWaivers = useCallback(async (leagueKey, pos, prefs, requestToken) => {
-    const token = requestToken ?? nextRequestToken()
-    setLoadingWaivers(true)
-    setError(null)
+  const fetchWaivers = useCallback(async (leagueKey, pos, prefs) => {
+    return executeWaivers(async () => {
+      const params = new URLSearchParams({
+        scoring: prefs.scoring,
+        risk: prefs.risk,
+        focus: prefs.focus,
+      })
+      if (pos && pos !== 'All') {
+        params.set('position', pos)
+      }
 
-    const params = new URLSearchParams({
-      scoring: prefs.scoring,
-      risk: prefs.risk,
-      focus: prefs.focus,
-    })
-    if (pos && pos !== 'All') {
-      params.set('position', pos)
-    }
-
-    try {
       const response = await apiFetch(
         `/api/yahoo/leagues/${encodeURIComponent(leagueKey)}/waivers?${params.toString()}`
       )
@@ -84,16 +227,10 @@ function WaiverWire({ onPlayerSelect, navigate }) {
       }
 
       const data = await response.json()
-      if (!isActiveRequest(token)) return null
       setWaiverData(data)
       return data
-    } catch (err) {
-      if (isActiveRequest(token)) throw err
-      return null
-    } finally {
-      if (isActiveRequest(token)) setLoadingWaivers(false)
-    }
-  }, [])
+    })
+  }, [executeWaivers])
 
   const fetchTeams = useCallback(async () => {
     setLoadingTeams(true)
@@ -122,7 +259,7 @@ function WaiverWire({ onPlayerSelect, navigate }) {
       if (derived.length) {
         const firstKey = derived[0].league_key
         setSelectedLeagueKey(firstKey)
-        await fetchWaivers(firstKey, 'All', DEFAULT_PREFERENCES, nextRequestToken())
+        await fetchWaivers(firstKey, 'All', DEFAULT_PREFERENCES)
       }
     } catch (err) {
       console.error(err)
@@ -130,7 +267,7 @@ function WaiverWire({ onPlayerSelect, navigate }) {
     } finally {
       setLoadingTeams(false)
     }
-  }, [deriveLeagues, fetchWaivers])
+  }, [deriveLeagues, fetchWaivers, setError])
 
   useEffect(() => {
     fetchTeams()
@@ -145,7 +282,7 @@ function WaiverWire({ onPlayerSelect, navigate }) {
     setError(null)
 
     try {
-      await fetchWaivers(leagueKey, 'All', preferences, nextRequestToken())
+      await fetchWaivers(leagueKey, 'All', preferences)
     } catch (err) {
       console.error(err)
       setError(err.message)
@@ -157,7 +294,7 @@ function WaiverWire({ onPlayerSelect, navigate }) {
     if (!selectedLeagueKey) return
 
     try {
-      await fetchWaivers(selectedLeagueKey, pos, preferences, nextRequestToken())
+      await fetchWaivers(selectedLeagueKey, pos, preferences)
     } catch (err) {
       console.error(err)
       setError(err.message)
@@ -172,7 +309,7 @@ function WaiverWire({ onPlayerSelect, navigate }) {
     if (!selectedLeagueKey) return
     setError(null)
     try {
-      await fetchWaivers(selectedLeagueKey, positionFilter, preferences, nextRequestToken())
+      await fetchWaivers(selectedLeagueKey, positionFilter, preferences)
     } catch (err) {
       console.error(err)
       setError(err.message)
@@ -180,7 +317,12 @@ function WaiverWire({ onPlayerSelect, navigate }) {
   }
 
   if (loadingTeams) {
-    return <div className="waiver-loading">Loading Yahoo leagues...</div>
+    return (
+      <div className="waiver-view">
+        <div className="waiver-loading">Loading Yahoo leagues...</div>
+        <RosterGridSkeleton count={6} />
+      </div>
+    )
   }
 
   if (!leagues.length) {
@@ -330,149 +472,20 @@ function WaiverWire({ onPlayerSelect, navigate }) {
 
       {/* Loading state */}
       {loadingWaivers && !waiverData && (
-        <div className="waiver-loading">Scanning free agents...</div>
+        <>
+          <div className="waiver-loading">Scanning free agents...</div>
+          <RosterGridSkeleton count={8} />
+        </>
       )}
 
       {/* Tiered Player Grid */}
-      {waiverData && (() => {
-        const allPlayers = waiverData.players || []
-        const filtered = recommendationFilter === 'All'
-          ? allPlayers
-          : allPlayers.filter(p => p.recommendation === recommendationFilter)
-
-        const tierGroups = { GRAB: [], WATCH: [], SKIP: [] }
-        for (const p of filtered) {
-          const bucket = tierGroups[p.recommendation] || tierGroups.SKIP
-          bucket.push(p)
-        }
-
-        const renderPlayerCard = (player) => {
-          const matched = Boolean(player.enhanced_player && player.matched_sleeper_id)
-          const projectionValue = matched
-            ? player.enhanced_player.projection.adjusted_projection
-                ?? player.enhanced_player.projection.sleeper_projection
-            : null
-
-          return (
-            <div
-              key={player.yahoo_player_key || player.name}
-              className={`waiver-player-card${matched ? ' clickable' : ''}`}
-              onClick={() => {
-                if (matched && onPlayerSelect) {
-                  onPlayerSelect(player.enhanced_player.player)
-                }
-              }}
-              style={matched ? { cursor: 'pointer' } : undefined}
-            >
-              <div className="waiver-player-header">
-                <PlayerHeadshot
-                  espnId={player.enhanced_player?.player?.espn_id}
-                  position={player.position || 'N/A'}
-                  size={32}
-                />
-                <span className="waiver-player-team">{player.team || 'FA'}</span>
-                {player.enhanced_player?.player?.injury_status && (
-                  <span className={`injury-badge ${player.enhanced_player.player.injury_status.toLowerCase().replace('_', '')}`}>
-                    {player.enhanced_player.player.injury_status}
-                  </span>
-                )}
-              </div>
-
-              <h3 className="waiver-player-name">{player.name}</h3>
-
-              <div className="waiver-badge-row">
-                <div className={`waiver-recommendation-badge ${player.recommendation.toLowerCase()}`}>
-                  {player.recommendation}
-                </div>
-
-                {player.percent_owned != null && (
-                  <div className="waiver-owned-pill">
-                    {player.percent_owned.toFixed(0)}% owned
-                  </div>
-                )}
-
-                {player.score != null && (
-                  <ScoreBreakdown score={player.score} breakdown={player.score_breakdown} />
-                )}
-              </div>
-
-              <p className="waiver-reasoning">{player.reasoning}</p>
-
-              {matched && (
-                <div className="waiver-analytics">
-                  <div className="waiver-projection-row">
-                    <span className="waiver-projection-label">Projection</span>
-                    <span className="waiver-projection-value">{projectionValue?.toFixed(1)} pts</span>
-                  </div>
-
-                  {player.enhanced_player.recent_performance?.volatility_score != null && (
-                    <div className="waiver-projection-row">
-                      <span className="waiver-projection-label">Volatility</span>
-                      <span className={`waiver-projection-value ${
-                        player.enhanced_player.recent_performance.volatility_score < 0.25 ? 'text-success' :
-                        player.enhanced_player.recent_performance.volatility_score < 0.5 ? 'text-warning' : 'text-danger'
-                      }`}>
-                        {(player.enhanced_player.recent_performance.volatility_score * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  )}
-
-                  {player.enhanced_player.performance_flags?.length > 0 && (
-                    <div className="waiver-flags-inline">
-                      {player.enhanced_player.performance_flags.slice(0, 3).map(flag => (
-                        <span key={`${player.yahoo_player_key}-${flag}`} className="waiver-flag-chip">
-                          {flag.replace(/_/g, ' ')}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {matched && (
-                <div className="pulse-wrapper">
-                  <PulseButton
-                    sleeperId={player.enhanced_player.player.sleeper_id}
-                    playerName={player.enhanced_player.player.name}
-                  />
-                </div>
-              )}
-            </div>
-          )
-        }
-
-        return (
-          <div className="waiver-tiered-list">
-            {['GRAB', 'WATCH', 'SKIP'].map(tier => {
-              const players = tierGroups[tier]
-              if (!players.length) return null
-              const config = TIER_CONFIG[tier]
-              const isCollapsed = collapsedTiers[tier]
-
-              return (
-                <div key={tier} className="waiver-tier-section">
-                  <button
-                    type="button"
-                    className="waiver-tier-header"
-                    style={{ '--tier-accent': config.accent }}
-                    onClick={() => setCollapsedTiers(prev => ({ ...prev, [tier]: !prev[tier] }))}
-                  >
-                    <span className="waiver-tier-title">
-                      {config.emoji} {config.label} ({players.length})
-                    </span>
-                    <span className={`waiver-tier-chevron${isCollapsed ? ' collapsed' : ''}`}>&#9660;</span>
-                  </button>
-                  {!isCollapsed && (
-                    <div className="waiver-grid">
-                      {players.map(renderPlayerCard)}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )
-      })()}
+      {waiverData && <WaiverTieredList
+        players={waiverData.players}
+        recommendationFilter={recommendationFilter}
+        collapsedTiers={collapsedTiers}
+        setCollapsedTiers={setCollapsedTiers}
+        onPlayerSelect={onPlayerSelect}
+      />}
     </div>
   )
 }

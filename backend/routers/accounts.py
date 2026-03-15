@@ -8,6 +8,8 @@ import sqlite3
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from models.schemas import (
     AuthLoginRequest,
@@ -21,6 +23,7 @@ from services.storage import get_storage
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -62,6 +65,7 @@ async def auth_me(request: Request):
 
 
 @router.post("/register", response_model=AuthSessionResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
 async def register_account(payload: AuthRegisterRequest, request: Request):
     """Create a local user account and start an authenticated session."""
     email = _normalize_email(payload.email)
@@ -88,6 +92,7 @@ async def register_account(payload: AuthRegisterRequest, request: Request):
 
 
 @router.post("/login", response_model=AuthSessionResponse)
+@limiter.limit("5/minute")
 async def login_account(payload: AuthLoginRequest, request: Request):
     """Authenticate an existing account and start session."""
     email = _normalize_email(payload.email)

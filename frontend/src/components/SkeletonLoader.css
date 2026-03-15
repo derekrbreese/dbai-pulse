@@ -91,6 +91,55 @@
     flex-wrap: wrap;
 }
 
+/* ===== Roster Grid Skeleton ===== */
+.skeleton-roster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 16px 0;
+}
+
+.skeleton-roster-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.skeleton-roster-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.skeleton-avatar-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(90deg,
+            var(--border-subtle) 25%,
+            var(--border-medium) 50%,
+            var(--border-subtle) 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+.skeleton-roster-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.skeleton-roster-footer {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
 /* ===== Chart Skeleton ===== */
 .skeleton-chart {
     background: var(--bg-secondary);

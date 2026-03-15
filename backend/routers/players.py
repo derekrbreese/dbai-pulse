@@ -5,6 +5,7 @@ Core player endpoints: search, enhanced detail, trends, ADP.
 See also: pulse.py, comparison.py, flags.py for specialized endpoints.
 """
 
+import asyncio
 from typing import List
 
 from fastapi import APIRouter, HTTPException, Query
@@ -63,31 +64,21 @@ async def get_player_trends(sleeper_id: str, lookback: int = Query(3, ge=1, le=8
     if not player_data:
         raise HTTPException(status_code=404, detail="Player not found")
 
-    weekly_data = []
-    for i in range(1, lookback + 1):
-        week = current_week - i
-        if week < 1:
-            break
+    weeks_to_fetch = [current_week - i for i in range(1, lookback + 1) if current_week - i >= 1]
 
-        stats = await client.get_player_stats(sleeper_id, current_season, week)
-        projection = await client.get_player_projection(
-            sleeper_id, current_season, week
+    async def _fetch_week(week):
+        stats, projection = await asyncio.gather(
+            client.get_player_stats(sleeper_id, current_season, week),
+            client.get_player_projection(sleeper_id, current_season, week),
         )
-
         points = 0.0
         if stats:
             stat_data = stats.get("stats", stats)
             points = stat_data.get("pts_ppr") or stat_data.get("pts") or 0.0
+        return {"week": week, "actual_points": round(points, 1), "projected_points": round(projection, 1)}
 
-        weekly_data.append(
-            {
-                "week": week,
-                "actual_points": round(points, 1),
-                "projected_points": round(projection, 1),
-            }
-        )
-
-    weekly_data.reverse()
+    weekly_data = await asyncio.gather(*[_fetch_week(w) for w in weeks_to_fetch])
+    weekly_data = sorted(weekly_data, key=lambda x: x["week"])
 
     return {
         "player_id": sleeper_id,
