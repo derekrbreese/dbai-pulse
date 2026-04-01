@@ -2,6 +2,18 @@ import './EnhancedCard.css'
 import PulseButton from './PulseButton'
 import PlayerHeadshot from './PlayerHeadshot'
 
+const FLAG_EXPLANATIONS = {
+    BREAKOUT_CANDIDATE: 'L3W average is 50%+ above projection — significantly outproducing expectations',
+    TRENDING_UP: 'L3W average is 20%+ above projection — on an upward trajectory',
+    UNDERPERFORMING: 'L3W average is below 80% of projection — not meeting expectations',
+    DECLINING_ROLE: 'L3W average is below 70% of projection — significant production drop',
+    HIGH_CEILING: 'Best recent week was 2x+ their projection — spike week potential',
+    BOOM_BUST: 'Best week is 2x+ their worst week — high variance, unpredictable',
+    CONSISTENT: 'All recent weeks within ±20% of average — reliable, low-variance scorer',
+    DRAFT_VALUE: 'Projected points per ADP pick is strong — potential value pick',
+    DRAFT_REACH: 'Projected points per ADP pick is low — may be overdrafted',
+}
+
 function EnhancedCard({ data }) {
     const { player, projection, recent_performance, performance_flags, context_message, on_bye, draft_value } = data
 
@@ -136,6 +148,7 @@ function EnhancedCard({ data }) {
                                 key={idx}
                                 className="flag-chip"
                                 style={{ borderLeftColor: getFlagColor(flag) }}
+                                title={FLAG_EXPLANATIONS[flag] || flag}
                             >
                                 {flag.replace(/_/g, ' ')}
                             </span>

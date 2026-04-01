@@ -4,6 +4,29 @@ import PlayerSlot from './PlayerSlot'
 import ComparisonResult from './ComparisonResult'
 import './ComparisonView.css'
 
+const SUGGESTED_MATCHUPS = [
+    {
+        label: 'QB Battle',
+        playerA: { sleeper_id: '6744', name: 'Josh Allen' },
+        playerB: { sleeper_id: '4881', name: 'Lamar Jackson' },
+    },
+    {
+        label: 'RB Showdown',
+        playerA: { sleeper_id: '4866', name: 'Saquon Barkley' },
+        playerB: { sleeper_id: '4018', name: 'Derrick Henry' },
+    },
+    {
+        label: 'WR Duel',
+        playerA: { sleeper_id: '7564', name: "Ja'Marr Chase" },
+        playerB: { sleeper_id: '6786', name: 'CeeDee Lamb' },
+    },
+    {
+        label: 'TE Clash',
+        playerA: { sleeper_id: '4993', name: 'Sam LaPorta' },
+        playerB: { sleeper_id: '4988', name: 'Trey McBride' },
+    },
+]
+
 async function loadPlayerById(sleeperId) {
     const response = await apiFetch(`/api/players/${sleeperId}`)
     if (!response.ok) return null
@@ -129,6 +152,32 @@ function ComparisonView({ params = {} }) {
             </div>
 
             {error && <div className="comparison-error">⚠️ {error}</div>}
+
+            {/* Suggested Matchups — show when empty */}
+            {!playerA && !playerB && !result && !loading && (
+                <div className="suggested-matchups">
+                    <h3 className="suggested-title">🔥 Popular Comparisons</h3>
+                    <p className="suggested-subtitle">Click one to run an instant AI head-to-head</p>
+                    <div className="suggested-grid">
+                        {SUGGESTED_MATCHUPS.map((matchup) => (
+                            <button
+                                key={matchup.label}
+                                className="suggested-chip"
+                                onClick={async () => {
+                                    setPlayerA(matchup.playerA)
+                                    setPlayerB(matchup.playerB)
+                                    await runComparison(matchup.playerA, matchup.playerB)
+                                }}
+                            >
+                                <span className="suggested-chip-label">{matchup.label}</span>
+                                <span className="suggested-chip-players">
+                                    {matchup.playerA.name} vs {matchup.playerB.name}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Results */}
             {result && (

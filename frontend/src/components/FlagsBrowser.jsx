@@ -3,14 +3,24 @@ import { apiFetch } from '../api/client'
 import PlayerHeadshot from './PlayerHeadshot'
 import './FlagsBrowser.css'
 
+const FLAG_EXPLANATIONS = {
+    BREAKOUT_CANDIDATE: 'L3W average is 50%+ above projection — significantly outproducing expectations',
+    TRENDING_UP: 'L3W average is 20%+ above projection — on an upward trajectory',
+    UNDERPERFORMING: 'L3W average is below 80% of projection — not meeting expectations',
+    DECLINING_ROLE: 'L3W average is below 70% of projection — significant production drop',
+    HIGH_CEILING: 'Best recent week was 2x+ their projection — spike week potential',
+    BOOM_BUST: 'Best week is 2x+ their worst week — high variance, unpredictable',
+    CONSISTENT: 'All recent weeks within ±20% of average — reliable, low-variance scorer',
+}
+
 const FLAGS = [
-    { id: 'BREAKOUT_CANDIDATE', label: '🚀 Breakout', description: 'Outperforming projections by 50%+' },
-    { id: 'TRENDING_UP', label: '📈 Trending Up', description: 'Outperforming projections by 20%+' },
-    { id: 'CONSISTENT', label: '✅ Consistent', description: 'Low variance, reliable scorer' },
-    { id: 'HIGH_CEILING', label: '🎯 High Ceiling', description: 'Spike week potential' },
-    { id: 'BOOM_BUST', label: '🎰 Boom/Bust', description: 'High variance player' },
-    { id: 'UNDERPERFORMING', label: '📉 Under', description: 'Below projections' },
-    { id: 'DECLINING_ROLE', label: '⚠️ Declining', description: 'Significant role reduction' },
+    { id: 'BREAKOUT_CANDIDATE', label: '🚀 Breakout', description: 'Players outperforming projections by 50%+ over last 3 weeks' },
+    { id: 'TRENDING_UP', label: '📈 Trending Up', description: 'Players outperforming projections by 20%+ over last 3 weeks' },
+    { id: 'CONSISTENT', label: '✅ Consistent', description: 'All recent weeks within ±20% of their average — reliable scorers' },
+    { id: 'HIGH_CEILING', label: '🎯 High Ceiling', description: 'Had at least one week at 2x+ their projection — spike potential' },
+    { id: 'BOOM_BUST', label: '🎰 Boom/Bust', description: 'Best week is 2x+ their worst — high variance, start at your own risk' },
+    { id: 'UNDERPERFORMING', label: '📉 Under', description: 'Scoring below 80% of projection — underdelivering expectations' },
+    { id: 'DECLINING_ROLE', label: '⚠️ Declining', description: 'Scoring below 70% of projection — significant role or usage reduction' },
 ]
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE']
@@ -21,6 +31,22 @@ function FlagsBrowser({ onPlayerSelect, navigate }) {
     const [players, setPlayers] = useState([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
+    const [seasonInfo, setSeasonInfo] = useState(null)
+
+    useEffect(() => {
+        async function fetchStatus() {
+            try {
+                const response = await apiFetch('/api/status')
+                if (response.ok) {
+                    const data = await response.json()
+                    setSeasonInfo(data)
+                }
+            } catch (_err) {
+                // Non-critical
+            }
+        }
+        fetchStatus()
+    }, [])
 
     const fetchPlayers = useCallback(async () => {
         setLoading(true)
@@ -65,6 +91,12 @@ function FlagsBrowser({ onPlayerSelect, navigate }) {
                         <p className="flags-subtitle">Discover breakout players and performance patterns</p>
                     </div>
                 </div>
+                {seasonInfo && (
+                    <div className="flags-freshness">
+                        <span className="freshness-dot" />
+                        Week {seasonInfo.week} Data
+                    </div>
+                )}
             </div>
 
             {/* Flag Tabs */}
@@ -116,7 +148,14 @@ function FlagsBrowser({ onPlayerSelect, navigate }) {
                 {!loading && players.length > 0 && (
                     <div className="player-grid">
                         {players.map(p => (
-                            <div key={p.player.sleeper_id} className="player-card-mini" onClick={() => handleCardClick(p)}>
+                            <div
+                                key={p.player.sleeper_id}
+                                className="player-card-mini"
+                                onClick={() => handleCardClick(p)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleCardClick(p) }}
+                            >
                                 <div className="player-card-header">
                                     <PlayerHeadshot espnId={p.player.espn_id} position={p.player.position} size={24} />
                                     <span className="flags-player-team">{p.player.team || 'FA'}</span>
@@ -125,6 +164,7 @@ function FlagsBrowser({ onPlayerSelect, navigate }) {
                                             {p.player.injury_status}
                                         </span>
                                     )}
+                                    <span className="hover-reveal">View Details</span>
                                 </div>
                                 <div className="flags-player-name">{p.player.name}</div>
                                 <div className="player-stats">
@@ -159,7 +199,7 @@ function FlagsBrowser({ onPlayerSelect, navigate }) {
                                 </div>
                                 <div className="player-flags">
                                     {p.performance_flags?.map(flag => (
-                                        <span key={flag} className="mini-flag">{flag}</span>
+                                        <span key={flag} className="mini-flag" title={FLAG_EXPLANATIONS[flag] || flag}>{flag}</span>
                                     ))}
                                 </div>
                             </div>

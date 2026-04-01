@@ -83,6 +83,15 @@ async def health():
     return {"status": "healthy"}
 
 
+@app.get("/api/status")
+async def status():
+    """Return current NFL season and week for data freshness display."""
+    return {
+        "season": settings.nfl_season,
+        "week": settings.nfl_week,
+    }
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> Response:
     """Return empty favicon response to avoid noisy 404 logs."""

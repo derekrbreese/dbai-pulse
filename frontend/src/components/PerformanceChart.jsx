@@ -21,7 +21,12 @@ function PerformanceChart({ playerId, playerName: _playerName }) {
                     throw new Error('Failed to fetch trends')
                 }
                 const data = await response.json()
-                setChartData(data.weeks)
+                // Replace projected_points of 0 or null with null so Recharts skips those points
+                const cleaned = (data.weeks || []).map(w => ({
+                    ...w,
+                    projected_points: (w.projected_points > 0) ? w.projected_points : null,
+                }))
+                setChartData(cleaned)
             } catch (err) {
                 setError(err.message)
             } finally {
@@ -153,6 +158,7 @@ function PerformanceChart({ playerId, playerName: _playerName }) {
                         dot={{ fill: '#6366f1', r: 4, strokeWidth: 2, stroke: '#4f46e5' }}
                         activeDot={{ r: 6 }}
                         name="Projected"
+                        connectNulls={false}
                     />
                 </AreaChart>
             </ResponsiveContainer>

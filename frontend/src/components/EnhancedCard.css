@@ -202,6 +202,7 @@
   border-left-color: inherit;
   border-radius: var(--radius-sm);
   text-transform: uppercase;
+  cursor: help;
   transition: all 0.15s ease;
 }
 

@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+import { apiFetch } from '../api/client'
 import PlayerSearch from './PlayerSearch'
 import './DashboardHome.css'
 
@@ -45,6 +47,23 @@ function DashboardHome({ navigate, onPlayerSelect }) {
         },
     ]
 
+    const [seasonInfo, setSeasonInfo] = useState(null)
+
+    useEffect(() => {
+        async function fetchStatus() {
+            try {
+                const response = await apiFetch('/api/status')
+                if (response.ok) {
+                    const data = await response.json()
+                    setSeasonInfo(data)
+                }
+            } catch (_err) {
+                // Non-critical — silently fail
+            }
+        }
+        fetchStatus()
+    }, [])
+
     return (
         <div className="dashboard-home">
             {/* Hero */}
@@ -56,6 +75,12 @@ function DashboardHome({ navigate, onPlayerSelect }) {
                 <p className="home-subtitle">
                     AI-powered projections, performance flags, and expert analysis
                 </p>
+                {seasonInfo && (
+                    <div className="freshness-badge">
+                        <span className="freshness-dot" />
+                        Week {seasonInfo.week} · {seasonInfo.season} Season
+                    </div>
+                )}
             </div>
 
             {/* Hero Search */}

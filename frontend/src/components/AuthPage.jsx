@@ -107,7 +107,7 @@ function AuthPage({ onAuthenticated, onCancel = null }) {
                 <p>
                     {mode === 'forgot'
                         ? 'Enter your email and we\'ll send you a reset link.'
-                        : 'Log in to connect Yahoo and save your team feedback preferences.'}
+                        : 'Connect your Yahoo league to get AI start/sit picks, roster alerts, and waiver wire targets personalized to YOUR team.'}
                 </p>
             </header>
 
@@ -222,13 +222,16 @@ function AuthPage({ onAuthenticated, onCancel = null }) {
             )}
 
             {onCancel && (
-                <button
-                    type="button"
-                    className="auth-cancel"
-                    onClick={onCancel}
-                >
-                    Continue Without Yahoo
-                </button>
+                <div className="auth-guest-section">
+                    <button
+                        type="button"
+                        className="auth-cancel"
+                        onClick={onCancel}
+                    >
+                        Browse as Guest
+                    </button>
+                    <span className="auth-guest-note">Trending players and search only</span>
+                </div>
             )}
         </section>
     )
