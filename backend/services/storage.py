@@ -614,6 +614,30 @@ class SQLiteStorage:
 
         return updated_at
 
+    def delete_player_mapping(
+        self,
+        user_id: str,
+        team_key: str,
+        yahoo_player_key: Optional[str],
+        yahoo_player_id: Optional[str],
+    ) -> bool:
+        """Remove saved Yahoo-to-Sleeper mapping. Returns True if any rows deleted."""
+        identities = self._mapping_identities(yahoo_player_key, yahoo_player_id)
+        if not identities:
+            return False
+
+        placeholders = ",".join("?" for _ in identities)
+        with self._write_lock:
+            with self._connect() as conn:
+                cursor = conn.execute(
+                    f"""
+                    DELETE FROM yahoo_sleeper_player_map
+                    WHERE user_id = ? AND team_key = ? AND yahoo_identity IN ({placeholders})
+                    """,
+                    (user_id, team_key, *identities),
+                )
+        return cursor.rowcount > 0
+
     def get_app_setting(self, key: str) -> Optional[Dict[str, Any]]:
         """Get one app-level setting row."""
         with self._connect() as conn:

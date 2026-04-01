@@ -129,6 +129,31 @@ class PlayerSearchResult(BaseModel):
     espn_id: Optional[str] = None
 
 
+class NearMatchCandidate(BaseModel):
+    """A near-miss Sleeper player suggestion for an unmatched Yahoo player."""
+
+    sleeper_id: str
+    name: str
+    position: str
+    team: Optional[str] = None
+    similarity: float
+
+
+class ManualMatchRequest(BaseModel):
+    """Request body for manual Yahoo-to-Sleeper player matching."""
+
+    yahoo_player_key: str
+    yahoo_player_id: Optional[str] = None
+    sleeper_id: str
+
+
+class ManualUnmatchRequest(BaseModel):
+    """Request body for unlinking a Yahoo-to-Sleeper match."""
+
+    yahoo_player_key: str
+    yahoo_player_id: Optional[str] = None
+
+
 class PlayerADP(BaseModel):
     """ADP data for a player."""
 
@@ -219,6 +244,7 @@ class RosterInsightPlayer(BaseModel):
     custom_feedback: str
     feedback_score: Optional[float] = None
     score_breakdown: Optional[FeedbackScoreBreakdown] = None
+    near_matches: List[NearMatchCandidate] = Field(default_factory=list)
 
 
 class RosterInsightsResponse(BaseModel):

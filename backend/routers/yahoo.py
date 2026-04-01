@@ -9,6 +9,8 @@ from typing import Any, Dict, Literal, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from models.schemas import (
+    ManualMatchRequest,
+    ManualUnmatchRequest,
     RosterInsightsResponse,
     TeamFeedbackPreferences,
     TeamFeedbackPreferencesUpdate,
@@ -302,6 +304,63 @@ async def refresh_team_insights(
     except Exception as exc:
         logger.error("Failed to refresh team insights: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/teams/{team_key}/match")
+async def manual_match_player(
+    request: Request,
+    team_key: str,
+    body: ManualMatchRequest,
+):
+    """Manually link a Yahoo roster player to a Sleeper player ID."""
+    user_id, _, _, _ = await _get_authed_yahoo_context(request)
+    storage = get_storage()
+    insights_service = get_roster_insights_service()
+
+    enhanced = await insights_service.build_enhanced_player(body.sleeper_id, "ppr")
+    if not enhanced:
+        raise HTTPException(status_code=404, detail="Sleeper player not found")
+
+    storage.save_player_mapping(
+        user_id=user_id,
+        team_key=team_key,
+        yahoo_player_key=body.yahoo_player_key,
+        yahoo_player_id=body.yahoo_player_id,
+        sleeper_id=body.sleeper_id,
+        confidence=1.0,
+        match_reason="manual match",
+    )
+    storage.clear_team_insights_cache(user_id, team_key=team_key)
+
+    return {
+        "matched_sleeper_id": body.sleeper_id,
+        "match_confidence": 1.0,
+        "match_reason": "manual match",
+        "enhanced_player": enhanced.model_dump(),
+    }
+
+
+@router.delete("/teams/{team_key}/match")
+async def unmatch_player(
+    request: Request,
+    team_key: str,
+    body: ManualUnmatchRequest,
+):
+    """Remove a Yahoo-to-Sleeper player mapping."""
+    user_id, _, _, _ = await _get_authed_yahoo_context(request)
+    storage = get_storage()
+
+    deleted = storage.delete_player_mapping(
+        user_id=user_id,
+        team_key=team_key,
+        yahoo_player_key=body.yahoo_player_key,
+        yahoo_player_id=body.yahoo_player_id,
+    )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="No mapping found to remove")
+
+    storage.clear_team_insights_cache(user_id, team_key=team_key)
+    return {"unlinked": True, "yahoo_player_key": body.yahoo_player_key}
 
 
 @router.get("/leagues/{league_key}/waivers", response_model=WaiverWireResponse)

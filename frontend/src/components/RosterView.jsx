@@ -21,6 +21,11 @@ function RosterView({ onPlayerSelect, navigate }) {
 
   const [compareMode, setCompareMode] = useState(false)
   const [compareA, setCompareA] = useState(null)
+  const [matchingPlayer, setMatchingPlayer] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [matchSaving, setMatchSaving] = useState(null)
 
   const [loadingTeams, setLoadingTeams] = useState(true)
   const [savingPreferences, setSavingPreferences] = useState(false)
@@ -181,6 +186,132 @@ function RosterView({ onPlayerSelect, navigate }) {
       })
     } catch (err) {
       console.error(err)
+    }
+  }
+
+  const handleManualMatch = async (player, sleeperId) => {
+    if (!selectedTeamKey || matchSaving) return
+    setMatchSaving(sleeperId)
+
+    try {
+      const yahooPlayerId = player.yahoo_player_key?.includes('.p.')
+        ? player.yahoo_player_key.split('.p.').pop()
+        : null
+
+      const response = await apiFetch(
+        `/api/yahoo/teams/${encodeURIComponent(selectedTeamKey)}/match`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            yahoo_player_key: player.yahoo_player_key,
+            yahoo_player_id: yahooPlayerId,
+            sleeper_id: sleeperId,
+          }),
+        }
+      )
+
+      if (!response.ok) throw new Error('Failed to save match')
+      const data = await response.json()
+
+      setInsights(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          players: prev.players.map(p =>
+            p.yahoo_player_key === player.yahoo_player_key
+              ? {
+                  ...p,
+                  matched_sleeper_id: data.matched_sleeper_id,
+                  match_confidence: data.match_confidence,
+                  match_reason: data.match_reason,
+                  enhanced_player: data.enhanced_player,
+                  near_matches: [],
+                }
+              : p
+          ),
+          matched_count: prev.matched_count + 1,
+          unmatched_count: Math.max(prev.unmatched_count - 1, 0),
+        }
+      })
+      setMatchingPlayer(null)
+      setSearchQuery('')
+      setSearchResults([])
+    } catch (err) {
+      console.error(err)
+      setError(err.message)
+    } finally {
+      setMatchSaving(null)
+    }
+  }
+
+  const handleUnmatch = async (player) => {
+    if (!selectedTeamKey) return
+
+    const yahooPlayerId = player.yahoo_player_key?.includes('.p.')
+      ? player.yahoo_player_key.split('.p.').pop()
+      : null
+
+    try {
+      const response = await apiFetch(
+        `/api/yahoo/teams/${encodeURIComponent(selectedTeamKey)}/match`,
+        {
+          method: 'DELETE',
+          body: JSON.stringify({
+            yahoo_player_key: player.yahoo_player_key,
+            yahoo_player_id: yahooPlayerId,
+          }),
+        }
+      )
+
+      if (!response.ok) throw new Error('Failed to unlink match')
+
+      setInsights(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          players: prev.players.map(p =>
+            p.yahoo_player_key === player.yahoo_player_key
+              ? {
+                  ...p,
+                  matched_sleeper_id: null,
+                  match_confidence: null,
+                  match_reason: 'unlinked by user',
+                  enhanced_player: null,
+                  near_matches: [],
+                  feedback_score: null,
+                  score_breakdown: null,
+                  custom_feedback: 'Match removed. Use suggestions or search to re-link.',
+                }
+              : p
+          ),
+          matched_count: Math.max(prev.matched_count - 1, 0),
+          unmatched_count: prev.unmatched_count + 1,
+        }
+      })
+    } catch (err) {
+      console.error(err)
+      setError(err.message)
+    }
+  }
+
+  const handlePlayerSearch = async (query) => {
+    setSearchQuery(query)
+    if (query.length < 2) {
+      setSearchResults([])
+      return
+    }
+    setSearchLoading(true)
+    try {
+      const response = await apiFetch(
+        `/api/players/search?q=${encodeURIComponent(query)}&limit=8`
+      )
+      if (response.ok) {
+        setSearchResults(await response.json())
+      }
+    } catch {
+      // silent — search is best-effort
+    } finally {
+      setSearchLoading(false)
     }
   }
 
@@ -408,8 +539,30 @@ function RosterView({ onPlayerSelect, navigate }) {
               <h3 className="roster-player-name">{player.name}</h3>
 
               <div className="roster-badge-row">
-                <div className={`roster-match-pill ${matched ? 'matched' : 'unmatched'}`}>
-                  {matched ? 'Matched to Sleeper' : 'Unmatched'}
+                <div className="roster-match-pill-group">
+                  <div className={`roster-match-pill ${
+                    !matched ? 'unmatched'
+                    : player.match_reason === 'manual match' ? 'linked'
+                    : player.match_confidence >= 0.95 ? 'matched'
+                    : 'auto-matched'
+                  }`}>
+                    {!matched ? 'Unmatched'
+                     : player.match_reason === 'manual match' ? 'Linked'
+                     : player.match_confidence >= 0.95 ? 'Matched'
+                     : 'Auto-matched'}
+                  </div>
+                  {matched && (
+                    <button
+                      className="unlink-button"
+                      title="Remove this match"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleUnmatch(player)
+                      }}
+                    >
+                      Unlink
+                    </button>
+                  )}
                 </div>
 
                 {player.feedback_score != null && (
@@ -440,7 +593,85 @@ function RosterView({ onPlayerSelect, navigate }) {
               )}
 
               {!matched && (
-                <p className="roster-match-reason">Reason: {player.match_reason}</p>
+                <div className="roster-match-actions">
+                  {player.near_matches?.length > 0 && (
+                    <div className="near-match-suggestions">
+                      <span className="near-match-label">Did you mean?</span>
+                      <div className="near-match-chips">
+                        {player.near_matches.map(nm => (
+                          <button
+                            key={nm.sleeper_id}
+                            className="near-match-chip"
+                            disabled={matchSaving === nm.sleeper_id}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleManualMatch(player, nm.sleeper_id)
+                            }}
+                          >
+                            <span className="nm-name">{nm.name}</span>
+                            <span className="nm-meta">{nm.position} {nm.team || ''}</span>
+                            {matchSaving === nm.sleeper_id && <span className="nm-saving">saving...</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {matchingPlayer === player.yahoo_player_key ? (
+                    <div className="match-search-inline">
+                      <input
+                        type="text"
+                        className="match-search-input"
+                        placeholder="Search Sleeper players..."
+                        value={searchQuery}
+                        onChange={(e) => handlePlayerSearch(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        autoFocus
+                      />
+                      {searchResults.length > 0 && (
+                        <div className="match-search-results">
+                          {searchResults.map(r => (
+                            <button
+                              key={r.sleeper_id}
+                              className="match-search-result"
+                              disabled={matchSaving === r.sleeper_id}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleManualMatch(player, r.sleeper_id)
+                              }}
+                            >
+                              {r.name} — {r.position} {r.team || ''}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {searchLoading && <span className="match-search-loading">Searching...</span>}
+                      <button
+                        className="match-search-cancel"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setMatchingPlayer(null)
+                          setSearchQuery('')
+                          setSearchResults([])
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="match-search-trigger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setMatchingPlayer(player.yahoo_player_key)
+                      }}
+                    >
+                      Search all players
+                    </button>
+                  )}
+
+                  <span className="roster-match-reason-small">{player.match_reason}</span>
+                </div>
               )}
 
               {(player.status || player.injury_status) && (

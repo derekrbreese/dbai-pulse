@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from config import get_settings
 from models.schemas import (
     EnhancedPlayer,
+    NearMatchCandidate,
     PlayerBase,
     PlayerProjection,
     RecentPerformance,
@@ -486,6 +487,72 @@ class RosterInsightsService:
 
         return None, None, "no high-confidence sleeper match"
 
+    def suggest_candidates(
+        self,
+        yahoo_player: Dict[str, Any],
+        index: Dict[str, Any],
+        max_results: int = 3,
+    ) -> List[NearMatchCandidate]:
+        """Return top near-miss Sleeper candidates for an unmatched Yahoo player."""
+        meta = index.get("meta", {})
+        name = self.normalize_name(yahoo_player.get("name", ""))
+        team = self.normalize_team(yahoo_player.get("team"))
+        position = self.normalize_position(yahoo_player.get("position"))
+
+        if not name:
+            return []
+
+        compact_name = self.normalize_name_compact(name)
+        scored: List[Tuple[float, str]] = []
+
+        for sid, player_meta in meta.items():
+            s_team = player_meta.get("team") or ""
+            s_pos = player_meta.get("position") or ""
+
+            team_match = bool(team and s_team == team)
+            pos_match = bool(position and s_pos == position)
+
+            if not team_match and not pos_match:
+                continue
+
+            best_sim = 0.0
+            for n in player_meta.get("normalized_names", []):
+                best_sim = max(
+                    best_sim,
+                    difflib.SequenceMatcher(None, name, n).ratio(),
+                )
+            for c in player_meta.get("compact_names", []):
+                if compact_name and c:
+                    best_sim = max(
+                        best_sim,
+                        difflib.SequenceMatcher(None, compact_name, c).ratio(),
+                    )
+
+            effective_sim = best_sim
+            if team_match and pos_match:
+                effective_sim += 0.05
+            elif team_match:
+                effective_sim += 0.02
+
+            if best_sim >= 0.45:
+                scored.append((effective_sim, sid))
+
+        scored.sort(reverse=True)
+
+        results = []
+        for sim, sid in scored[:max_results]:
+            pm = meta[sid]
+            results.append(
+                NearMatchCandidate(
+                    sleeper_id=sid,
+                    name=pm.get("name", ""),
+                    position=pm.get("position", ""),
+                    team=pm.get("team"),
+                    similarity=round(min(sim, 1.0), 3),
+                )
+            )
+        return results
+
     @staticmethod
     def _build_context_message(
         on_bye: bool,
@@ -770,6 +837,9 @@ class RosterInsightsService:
                     team_key=team_key,
                 )
                 enhanced_player = None
+                near_matches: List[NearMatchCandidate] = []
+                if not sleeper_id:
+                    near_matches = self.suggest_candidates(yahoo_player, index)
                 if sleeper_id:
                     enhanced_player = await self.build_enhanced_player(sleeper_id, preferences.scoring)
                     if enhanced_player:
@@ -815,6 +885,7 @@ class RosterInsightsService:
                     custom_feedback=feedback,
                     feedback_score=score,
                     score_breakdown=breakdown,
+                    near_matches=near_matches,
                 )
 
         players = list(await asyncio.gather(
